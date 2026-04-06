@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Kair">
+  <meta name="theme-color" content="#1B3A2A">
+  <meta charset="UTF-8"/>
+  <title>Kair · Registro diario</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    /* ─── VARIABLES ─────────────────────────────────── */
+    :root {
+      --bg: #FAFAF8; --card: #ffffff; --accent: #2ac6a8; --accent-dark: #1B3A2A;
+      --text-main: #111820; --text-muted: #6b7280; --text-light: #9ca3af;
+      --border: #e8e8e4; --border-soft: #f0f0ec;
+      --warning: #92400e; --danger: #b91c1c; --overlay: rgba(17,24,32,0.45);
+    }
+    [data-theme="dark"] {
+      --bg: #111820; --card: #1a2230; --text-main: #e8e8e4; --text-muted: #9ca3af;
+      --text-light: #6b7280; --border: #2a3545; --border-soft: #222d3a; --overlay: rgba(0,0,0,0.65);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui,-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif; background: var(--bg); color: var(--text-main); -webkit-font-smoothing: antialiased; transition: background 0.25s,color 0.25s; }
+
+    /* ══════════════════════════════════════
+       SPLASH SCREEN
+    ══════════════════════════════════════ */
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #ffffff;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0;
+      transition: opacity 0.7s ease;
+    }
+    #splash.fading { opacity: 0; pointer-events: none; }
+    #splash.done { display: none; }
+    .splash-logo-wrap {
+      animation: splashLogoIn 1s cubic-bezier(0.16,1,0.3,1) forwards;
+      opacity: 0; transform: translateY(20px);
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+    }
+    .splash-wordmark {
+      font-size: 2.4rem; font-weight: 200; letter-spacing: 0.42em;
+      color: #1B3A2A; text-transform: lowercase;
+      animation: splashWordIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
+      animation-delay: 0.9s; opacity: 0;
+    }
+    .splash-tagline {
+      font-size: 0.72rem; color: #9ca3af;
+      letter-spacing: 0.22em; text-transform: lowercase;
+      animation: splashTagIn 0.7s ease forwards;
+      animation-delay: 1.8s; opacity: 0;
+    }
+    .splash-line {
+      width: 0; height: 1px; background: #e8e8e4;
+      animation: splashLineIn 0.6s ease forwards;
+      animation-delay: 1.4s; margin: 2px 0;
+    }
+    [data-theme="dark"] #splash { background: #111820; }
+    [data-theme="dark"] .splash-wordmark { color: #2ac6a8; }
+    [data-theme="dark"] .splash-line { background: #2a3545; }
+    @keyframes splashLogoIn { to { opacity:1; transform:translateY(0); } }
+    @keyframes splashWordIn { to { opacity:1; } }
+    @keyframes splashTagIn  { to { opacity:1; } }
+    @keyframes splashLineIn { to { width: 110px; } }
+
+    /* ══════════════════════════════════════
+       APP WRAPPER
+    ══════════════════════════════════════ */
+    .app-wrapper { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px 100px; }
+    .app-card { width: 100%; max-width: 440px; background: var(--card); border-radius: 20px; padding: 24px 24px 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.06),0 8px 32px rgba(0,0,0,0.06); position: relative; overflow: hidden; }
+    .content { position: relative; z-index: 1; }
+
+    /* ─── CABECERA ─────────────────────────────────────── */
+    .kair-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .kair-logo { display: flex; align-items: center; gap: 10px; }
+    .kair-wordmark { font-size: 1.1rem; font-weight: 200; letter-spacing: 0.28em; color: var(--text-main); }
+    .menu-btn { width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 8px; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0; transition: border-color 0.15s; }
+    .menu-btn:hover { border-color: var(--accent-dark); }
+    .menu-btn span { display: block; width: 14px; height: 1.5px; background: var(--text-muted); border-radius: 999px; transition: background 0.15s; }
+    .menu-btn:hover span { background: var(--accent-dark); }
+
+    /* ─── USER / LOGIN ─────────────────────────────────── */
+    .user-bar { display: none; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 8px 12px; border-radius: 8px; background: rgba(27,58,42,0.04); border: 1px solid rgba(27,58,42,0.1); }
+    [data-theme="dark"] .user-bar { background: rgba(42,198,168,0.05); border-color: rgba(42,198,168,0.15); }
+    .user-bar-left { display: flex; align-items: center; gap: 8px; }
+    .user-bar-id { font-size: 0.75rem; color: var(--accent-dark); font-weight: 500; letter-spacing: 0.04em; }
+    [data-theme="dark"] .user-bar-id { color: var(--accent); }
+    .btn-logout { border: none; background: transparent; font-size: 0.7rem; color: var(--text-light); cursor: pointer; }
+    .btn-logout:hover { color: var(--text-muted); }
+    .login-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 10px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+    .login-bar input { flex: 1; border: none; background: transparent; font-size: 0.82rem; color: var(--text-main); outline: none; font-family: inherit; }
+    .login-bar input::placeholder { color: var(--text-light); }
+    .btn-login { border: none; border-radius: 6px; padding: 5px 14px; background: var(--accent-dark); color: #fff; font-size: 0.75rem; font-weight: 500; cursor: pointer; letter-spacing: 0.04em; white-space: nowrap; font-family: inherit; }
+    .login-error { font-size: 0.72rem; color: var(--danger); margin-bottom: 10px; display: none; }
+    .page-title { font-size: 1.15rem; font-weight: 400; color: var(--text-main); margin-bottom: 4px; letter-spacing: -0.01em; }
+    .page-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+
+    /* ══════════════════════════════════════
+       RACHA VISUAL
+    ══════════════════════════════════════ */
+    .streak-widget {
+      display: none;
+      margin-bottom: 14px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+    .streak-widget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .streak-count-wrap { display: flex; align-items: baseline; gap: 5px; }
+    .streak-num {
+      font-size: 2rem; font-weight: 300; line-height: 1;
+      color: var(--accent-dark); letter-spacing: -0.03em;
+    }
+    [data-theme="dark"] .streak-num { color: var(--accent); }
+    .streak-unit { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.06em; }
+    .streak-label-text { font-size: 0.7rem; font-weight: 400; letter-spacing: 0.04em; color: var(--text-muted); }
+    /* Dots de los últimos 7 días */
+    .streak-dots { display: flex; gap: 4px; align-items: stretch; width: 100%; }
+    .streak-dot {
+      width: 8px; border-radius: 2px;
+      background: var(--border);
+      transition: background 0.3s, height 0.3s;
+    }
+    .streak-dot.filled { background: var(--accent-dark); }
+    [data-theme="dark"] .streak-dot.filled { background: var(--accent); }
+    .streak-dot.today { background: var(--accent); box-shadow: 0 0 0 2px rgba(42,198,168,0.25); }
+    /* Mensaje motivacional */
+    .streak-motivation { font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4; }
+    .streak-motivation strong { color: var(--accent-dark); font-weight: 500; }
+    [data-theme="dark"] .streak-motivation strong { color: var(--accent); }
+
+    /* ─── SECCIONES ─────────────────────────────────────── */
+    .section-card { border-radius: 12px; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); margin-bottom: 10px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .section-title { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+    .section-tag { font-size: 0.65rem; color: var(--accent-dark); background: rgba(27,58,42,0.06); padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em; }
+    [data-theme="dark"] .section-tag { color: var(--accent); background: rgba(42,198,168,0.08); }
+
+    /* ─── INSIGHT ───────────────────────────────────────── */
+    .insight-body { font-size: 0.82rem; color: var(--text-main); line-height: 1.6; }
+    .insight-callout { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 0.78rem; line-height: 1.5; border-left: 2px solid var(--accent); }
+    .insight-callout.equilibrio { background: rgba(42,198,168,0.05); color: #065f46; border-color: var(--accent); }
+    [data-theme="dark"] .insight-callout.equilibrio { color: #86efac; background: rgba(42,198,168,0.08); }
+    .insight-callout.bajón { background: rgba(146,64,14,0.04); color: var(--warning); border-color: #d97706; }
+    .insight-callout.crisis { background: rgba(185,28,28,0.05); color: #7f1d1d; border-color: var(--danger); }
+    [data-theme="dark"] .insight-callout.crisis { color: #fca5a5; background: rgba(185,28,28,0.1); }
+
+    /* ─── EVA SLIDERS ───────────────────────────────────── */
+    .eva-block { margin-bottom: 16px; }
+    .eva-block:last-of-type { margin-bottom: 8px; }
+    .eva-question { font-size: 0.82rem; font-weight: 400; color: var(--text-main); margin-bottom: 8px; line-height: 1.4; }
+    .eva-scale { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.02em; }
+    .eva-row { display: flex; align-items: center; gap: 10px; }
+    .eva-val { min-width: 28px; text-align: center; font-size: 0.82rem; font-weight: 500; color: var(--accent-dark); background: rgba(27,58,42,0.06); border-radius: 5px; padding: 2px 6px; font-variant-numeric: tabular-nums; }
+    [data-theme="dark"] .eva-val { color: var(--accent); background: rgba(42,198,168,0.1); }
+    input[type="range"] { flex: 1; -webkit-appearance: none; appearance: none; height: 3px; border-radius: 999px; background: var(--border); outline: none; cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent-dark); border: 2px solid var(--card); box-shadow: 0 0 0 2px var(--accent-dark); cursor: pointer; }
+    input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--accent-dark); border: 2px solid var(--card); cursor: pointer; }
+
+    /* ─── BOTONES ───────────────────────────────────────── */
+    .primary-btn { width: 100%; border: none; border-radius: 8px; padding: 11px; font-size: 0.84rem; font-weight: 500; color: #fff; background: var(--accent-dark); cursor: pointer; margin-top: 10px; letter-spacing: 0.04em; font-family: inherit; transition: background 0.15s; }
+    .primary-btn:hover { background: #142d20; }
+    .primary-btn:disabled { opacity: 0.5; cursor: default; }
+    .footer-note { margin-top: 14px; font-size: 0.65rem; color: var(--text-light); line-height: 1.5; letter-spacing: 0.01em; }
+    .reminder-btn { width: 100%; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 0.76rem; padding: 8px; cursor: pointer; margin-top: 10px; font-family: inherit; letter-spacing: 0.03em; transition: border-color 0.15s,color 0.15s; }
+    .reminder-btn:hover { border-color: var(--accent-dark); color: var(--accent-dark); }
+
+    /* ─── RECOMENDACIONES ───────────────────────────────── */
+    .rec-item { padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+    .rec-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .rec-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+    .rec-cat { font-size: 0.65rem; font-weight: 500; color: var(--accent-dark); text-transform: uppercase; letter-spacing: 0.1em; }
+    [data-theme="dark"] .rec-cat { color: var(--accent); }
+    .rec-days-tag { font-size: 0.63rem; color: var(--text-light); letter-spacing: 0.03em; }
+    .rec-title { font-size: 0.82rem; font-weight: 500; color: var(--text-main); margin-bottom: 3px; }
+    .rec-body { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; }
+    .rec-reference details { margin-top: 5px; }
+    .rec-reference summary { font-size: 0.65rem; color: var(--accent); cursor: pointer; list-style: none; letter-spacing: 0.03em; }
+    .rec-reference summary::-webkit-details-marker { display: none; }
+    .rec-ref-body { font-size: 0.63rem; color: var(--text-light); line-height: 1.5; margin-top: 4px; font-style: italic; }
+    .rec-ref-body a { color: var(--accent); text-decoration: none; }
+    .rec-empty { font-size: 0.8rem; color: var(--text-muted); }
+    .rec-loading { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-muted); padding: 10px 0; }
+    .rec-loading-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-dark); animation: pulse 1.2s ease-in-out infinite; }
+    .rec-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+    .rec-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulse { 0%,80%,100%{opacity:0.2;}40%{opacity:1;} }
+
+    /* ─── MODALES ───────────────────────────────────────── */
+    .modal-backdrop { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+    .modal { width: 100%; max-width: 380px; background: var(--card); border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+    .modal-title { font-size: 0.95rem; font-weight: 500; color: var(--text-main); margin-bottom: 10px; }
+    .modal-body { font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 8px; }
+    .modal-actions { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; }
+    .btn-sm { border-radius: 6px; padding: 7px 16px; border: none; cursor: pointer; font-size: 0.78rem; font-family: inherit; }
+    .btn-sm-primary { background: var(--accent-dark); color: #fff; font-weight: 500; }
+    .btn-sm-ghost { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+    .risk-box { border-radius: 8px; padding: 10px 12px; background: rgba(185,28,28,0.04); border: 1px solid rgba(185,28,28,0.15); font-size: 0.76rem; color: #7f1d1d; margin-top: 8px; line-height: 1.5; }
+
+    /* ─── ONBOARDING ────────────────────────────────────── */
+    .onboarding-overlay { position: absolute; inset: 0; background: var(--accent-dark); color: #fff; padding: 32px 28px; display: none; flex-direction: column; justify-content: center; align-items: flex-start; z-index: 10; border-radius: 20px; }
+    .onb-progress { width: 100%; height: 2px; background: rgba(255,255,255,0.15); border-radius: 999px; margin-bottom: 48px; overflow: hidden; }
+    .onb-progress-inner { height: 100%; background: #fff; border-radius: 999px; transition: width 0.3s ease; }
+    .onb-step-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.18em; color: rgba(255,255,255,0.35); margin-bottom: 16px; }
+    .onb-title { font-size: 1.5rem; font-weight: 300; margin-bottom: 14px; letter-spacing: -0.01em; line-height: 1.3; }
+    .onb-text { font-size: 0.88rem; line-height: 1.6; opacity: 0.75; max-width: 320px; margin-bottom: 48px; }
+    .onb-actions { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+    .onb-btn { border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 9px 20px; font-size: 0.8rem; font-weight: 400; color: #fff; background: transparent; cursor: pointer; letter-spacing: 0.06em; font-family: inherit; transition: background 0.15s; }
+    .onb-btn:hover { background: rgba(255,255,255,0.08); }
+    .onb-dots { display: flex; gap: 5px; }
+    .onb-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.25); transition: background 0.2s; }
+    .onb-dot.active { background: #fff; }
+
+    /* ─── BOTONES FLOTANTES ─────────────────────────────── */
+    .gaia-btn { position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(27,58,42,0.2); background: var(--card); color: var(--accent-dark); cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.1); z-index: 100; display: flex; align-items: center; justify-content: center; font-family: inherit; transition: box-shadow 0.2s; }
+    .gaia-btn:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
+
+    /* GAIA PANEL */
+    .gaia-panel { position: fixed; bottom: 82px; right: 20px; width: 320px; max-height: 460px; background: var(--card); border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 12px 40px rgba(0,0,0,0.12); display: none; flex-direction: column; z-index: 99; overflow: hidden; }
+    .gaia-header { padding: 14px 16px; background: var(--accent-dark); color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    .gaia-name { font-size: 0.84rem; font-weight: 400; letter-spacing: 0.06em; }
+    .gaia-desc { font-size: 0.68rem; opacity: 0.65; margin-top: 1px; letter-spacing: 0.03em; }
+    .gaia-close { border: none; background: transparent; color: #fff; font-size: 1rem; cursor: pointer; opacity: 0.6; }
+    .gaia-close:hover { opacity: 1; }
+    .gaia-messages { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+    .gaia-msg { max-width: 88%; padding: 8px 11px; border-radius: 10px; font-size: 0.76rem; line-height: 1.5; font-family: inherit; }
+    .gaia-msg.bot { background: var(--bg); color: var(--text-main); align-self: flex-start; border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+    .gaia-msg.user { background: var(--accent-dark); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .gaia-msg.crisis-msg { background: rgba(185,28,28,0.06); border: 1px solid rgba(185,28,28,0.2); color: #7f1d1d; align-self: flex-start; border-bottom-left-radius: 3px; max-width: 96%; }
+    [data-theme="dark"] .gaia-msg.crisis-msg { background: rgba(185,28,28,0.12); color: #fca5a5; }
+    /* Límite de tokens */
+    .gaia-limit-bar { padding: 6px 12px; border-top: 1px solid var(--border-soft); display: flex; align-items: center; gap: 7px; }
+    .gaia-limit-track { flex: 1; height: 3px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .gaia-limit-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.3s; }
+    .gaia-limit-fill.warning { background: #d97706; }
+    .gaia-limit-fill.danger { background: var(--danger); }
+    .gaia-limit-text { font-size: 0.6rem; color: var(--text-light); white-space: nowrap; }
+    .gaia-input-row { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--border); }
+    .gaia-input { flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 0.76rem; font-family: inherit; background: var(--bg); color: var(--text-main); outline: none; }
+    .gaia-input:focus { border-color: var(--accent-dark); }
+    .gaia-send { border: none; border-radius: 6px; padding: 7px 12px; background: var(--accent-dark); color: #fff; font-size: 0.74rem; font-weight: 500; cursor: pointer; font-family: inherit; letter-spacing: 0.04em; }
+
+    #installBtn { position: fixed; top: 16px; right: 16px; padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--text-muted); font-size: 0.7rem; cursor: pointer; z-index: 200; font-family: inherit; letter-spacing: 0.04em; }
+
+    /* ─── REDES SOCIALES ────────────────────────────────── */
+    .social-btn { position: fixed; bottom: 24px; left: 24px; width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(27,58,42,0.2); background: var(--card); color: var(--accent-dark); cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.1); z-index: 100; display: flex; align-items: center; justify-content: center; transition: box-shadow 0.2s; font-family: inherit; }
+    .social-btn:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
+    .social-panel { position: fixed; bottom: 82px; left: 20px; background: var(--card); border-radius: 14px; border: 1px solid var(--border); box-shadow: 0 12px 40px rgba(0,0,0,0.12); display: none; flex-direction: column; z-index: 99; overflow: hidden; min-width: 180px; }
+    .social-panel.open { display: flex; }
+    .social-panel-header { padding: 10px 14px 8px; font-size: 0.65rem; font-weight: 500; color: var(--text-light); letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid var(--border-soft); }
+    .social-link { display: flex; align-items: center; gap: 10px; padding: 10px 14px; text-decoration: none; color: var(--text-main); font-size: 0.78rem; transition: background 0.12s; border-bottom: 1px solid var(--border-soft); }
+    .social-link:last-child { border-bottom: none; }
+    .social-link:hover { background: var(--bg); }
+    .social-link svg { flex-shrink: 0; }
+
+    /* ─── MENÚ LATERAL ──────────────────────────────────── */
+    .sidebar-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+    .sidebar-overlay.open { opacity: 1; pointer-events: all; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 300px; max-width: 88vw; height: 100vh; background: var(--card); border-right: 1px solid var(--border); z-index: 201; transform: translateX(-100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .sidebar-logo { display: flex; align-items: center; gap: 8px; }
+    .sidebar-wordmark { font-size: 0.95rem; font-weight: 200; letter-spacing: 0.28em; color: var(--text-main); }
+    .sidebar-close { border: none; background: transparent; font-size: 1.2rem; color: var(--text-light); cursor: pointer; padding: 4px; line-height: 1; }
+    .sidebar-close:hover { color: var(--text-muted); }
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .sidebar-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; cursor: pointer; font-size: 0.86rem; color: var(--text-main); border: none; background: transparent; width: 100%; text-align: left; font-family: inherit; transition: background 0.12s; letter-spacing: 0.01em; }
+    .sidebar-item:hover { background: var(--bg); }
+    .sidebar-item.active { background: rgba(27,58,42,0.05); color: var(--accent-dark); }
+    [data-theme="dark"] .sidebar-item.active { background: rgba(42,198,168,0.06); color: var(--accent); }
+    .sidebar-item-icon { width: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.6; }
+    .sidebar-footer { padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .sidebar-footer-text { font-size: 0.67rem; color: var(--text-light); line-height: 1.5; }
+    .sidebar-panel { display: none; flex-direction: column; height: 100%; }
+    .sidebar-panel.active { display: flex; }
+    .sidebar-panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .sidebar-panel-back { border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; font-family: inherit; padding: 4px 0; display: flex; align-items: center; gap: 4px; }
+    .sidebar-panel-back:hover { color: var(--text-main); }
+    .sidebar-panel-title { font-size: 0.88rem; font-weight: 400; color: var(--text-main); letter-spacing: 0.02em; }
+    .sidebar-panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .progress-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .progress-stat-card { border-radius: 10px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); }
+    .progress-stat-val { font-size: 1.4rem; font-weight: 300; color: var(--accent-dark); letter-spacing: -0.02em; }
+    [data-theme="dark"] .progress-stat-val { color: var(--accent); }
+    .progress-stat-label { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; letter-spacing: 0.04em; }
+    .chart-wrap { overflow-x: auto; margin-top: 2px; }
+    canvas { display: block; }
+    .sidebar-btn { width: 100%; border-radius: 6px; padding: 9px 16px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 0.78rem; cursor: pointer; font-family: inherit; letter-spacing: 0.03em; transition: border-color 0.15s,color 0.15s; margin-top: 10px; text-align: center; }
+    .sidebar-btn:hover { border-color: var(--accent-dark); color: var(--accent-dark); }
+    .sidebar-btn.primary { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); font-weight: 500; }
+    .sidebar-btn.primary:hover { background: #142d20; border-color: #142d20; color: #fff; }
+    .perfil-field { margin-bottom: 12px; }
+    .perfil-field-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-light); margin-bottom: 4px; }
+    .perfil-field-val { font-size: 0.82rem; color: var(--text-main); }
+    .perfil-score-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .perfil-score-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .perfil-score-bar { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.6s ease; }
+    .perfil-score-num { font-size: 0.72rem; color: var(--text-muted); min-width: 28px; text-align: right; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-soft); }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-size: 0.84rem; color: var(--text-main); }
+    .setting-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .toggle { position: relative; width: 38px; height: 22px; cursor: pointer; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: background 0.2s; }
+    .toggle input:checked ~ .toggle-track { background: var(--accent-dark); }
+    [data-theme="dark"] .toggle input:checked ~ .toggle-track { background: var(--accent); }
+    .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(16px); }
+    .lang-select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 0.78rem; font-family: inherit; background: var(--bg); color: var(--text-main); cursor: pointer; outline: none; }
+    .lang-select:focus { border-color: var(--accent-dark); }
+    .asociados-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .asociado-card { border-radius: 8px; padding: 12px; background: var(--card); border: 1px solid var(--border); }
+    .asociado-name { font-size: 0.74rem; font-weight: 500; color: var(--text-main); margin-bottom: 4px; }
+    .asociado-tag { font-size: 0.63rem; color: var(--text-light); letter-spacing: 0.04em; text-transform: uppercase; }
+
+    /* ─── RESPONSIVE ────────────────────────────────────── */
+    @media(max-width:480px){.app-card{border-radius:16px;padding:18px 16px 22px;}.gaia-panel{width:calc(100vw - 32px);right:16px;}.social-panel{left:16px;}}
+    @media(min-width:860px){.app-wrapper{align-items:center;padding:40px 32px 60px;}.app-card{max-width:720px;}}
+    @media(min-width:1200px){.app-wrapper{padding:48px;}.app-card{max-width:900px;}}
+    @media(min-width:1400px){.app-card{max-width:1060px;}}
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SPLASH SCREEN
+══════════════════════════════════════ -->
+<div id="splash">
+  <div class="splash-logo-wrap" style="animation-delay:0.1s">
+    <svg width="52" height="52" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <line x1="34" y1="15" x2="34" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/>
+      <line x1="41" y1="38" x2="72" y2="15" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/>
+      <line x1="41" y1="62" x2="72" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="54" cy="50" r="7.5" fill="#2ac6a8"/>
+    </svg>
+    <span class="splash-wordmark">kair</span>
+    <div class="splash-line"></div>
+    <span class="splash-tagline" data-i18n="splash_tagline">bienestar desde dentro</span>
+  </div>
+</div>
+
+<!-- AVISO LEGAL -->
+<div id="legalModal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" data-i18n="legal_title">Aviso de uso</div>
+    <div class="modal-body" data-i18n="legal_body1">Kair tiene fines educativos y de autoconocimiento. No está diseñada para diagnosticar, tratar ni sustituir la valoración de ningún profesional sanitario.</div>
+    <div class="modal-body" data-i18n="legal_body2">Las recomendaciones son orientativas. Si tus síntomas empeoran o tienes pensamientos de hacerte daño, contacta con un profesional o llama al 112.</div>
+    <div class="modal-body" style="margin-bottom:0;" data-i18n="legal_body3">Al continuar, aceptas el uso de la app bajo tu propia responsabilidad.</div>
+    <div class="modal-actions" style="justify-content:center;">
+      <button class="btn-sm btn-sm-primary" onclick="acceptLegal()" data-i18n="legal_btn">Aceptar y continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RECORDATORIO -->
+<div id="reminderModal" class="modal-backdrop" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" data-i18n="reminder_title">Recordatorio diario</div>
+    <div class="modal-body" data-i18n="reminder_body">Selecciona la hora a la que quieres recibir tu recordatorio diario. Necesitas tener la app instalada en tu dispositivo.</div>
+    <input id="reminderTime" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;font-family:inherit;background:var(--bg);color:var(--text-main);" type="time"/>
+    <div id="pushStatus" style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;line-height:1.4;display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-ghost" onclick="closeReminderModal()" data-i18n="btn_cancel">Cancelar</button>
+      <button class="btn-sm btn-sm-primary" onclick="confirmReminder()" data-i18n="btn_set_reminder">Activar recordatorio</button>
+    </div>
+  </div>
+</div>
+
+<button id="installBtn" onclick="openInstallHelp()" data-i18n="btn_install">Instalar</button>
+
+<!-- GAIA BTN -->
+<button class="gaia-btn" onclick="toggleGaia()" title="GAIA">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+</button>
+
+<!-- SOCIAL BTN -->
+<button class="social-btn" onclick="toggleSocial()" title="Síguenos">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+  </svg>
+</button>
+<div id="socialPanel" class="social-panel">
+  <div class="social-panel-header" data-i18n="social_header">Síguenos</div>
+  <a class="social-link" href="https://www.instagram.com/TUUSUARIO" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg><span>Instagram</span></a>
+  <a class="social-link" href="https://www.tiktok.com/@TUUSUARIO" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.32 6.32 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg><span>TikTok</span></a>
+  <a class="social-link" href="https://www.linkedin.com/company/TUEMPRESA" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg><span>LinkedIn</span></a>
+  <a class="social-link" href="https://twitter.com/TUUSUARIO" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg><span>X · Twitter</span></a>
+  <a class="social-link" href="https://www.youtube.com/@TUCANAL" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.4a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="white"/></svg><span>YouTube</span></a>
+</div>
+
+<!-- GAIA PANEL -->
+<div id="gaiaPanel" class="gaia-panel">
+  <div class="gaia-header">
+    <div><div class="gaia-name">GAIA</div><div class="gaia-desc" data-i18n="gaia_desc">Asistente de bienestar · Kair</div></div>
+    <button class="gaia-close" onclick="toggleGaia()">×</button>
+  </div>
+  <div id="gaiaMessages" class="gaia-messages">
+    <div class="gaia-msg bot" id="gaiaWelcome" data-i18n="gaia_welcome">Hola. Soy GAIA, tu asistente de bienestar dentro de Kair. Puedo explicarte cómo funcionan los suplementos, plantas y hábitos que recomendamos. Inicia sesión con tu ID para respuestas personalizadas.</div>
+  </div>
+  <div class="gaia-limit-bar" id="gaiaLimitBar" style="display:none;">
+    <div class="gaia-limit-track"><div class="gaia-limit-fill" id="gaiaLimitFill" style="width:100%"></div></div>
+    <span class="gaia-limit-text" id="gaiaLimitText"></span>
+  </div>
+  <div class="gaia-input-row">
+    <input id="gaiaInput" class="gaia-input" type="text" data-i18n-placeholder="gaia_placeholder" placeholder="Escribe tu consulta..." onkeydown="if(event.key==='Enter')sendGaia()"/>
+    <button class="gaia-send" onclick="sendGaia()" data-i18n="btn_send">Enviar</button>
+  </div>
+</div>
+
+<!-- MENÚ LATERAL -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<nav class="sidebar" id="sidebar">
+  <!-- Menú principal -->
+  <div class="sidebar-panel active" id="panelMain">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <svg width="22" height="22" viewBox="0 0 100 100"><line x1="34" y1="15" x2="34" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><line x1="41" y1="38" x2="72" y2="15" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><line x1="41" y1="62" x2="72" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><circle cx="54" cy="50" r="7.5" fill="#2ac6a8"/></svg>
+        <span class="sidebar-wordmark">kair</span>
+      </div>
+      <button class="sidebar-close" onclick="closeSidebar()">×</button>
+    </div>
+    <div class="sidebar-nav">
+      <button class="sidebar-item" onclick="openPanel('panelProgreso')">
+        <span class="sidebar-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+        <span data-i18n="menu_progreso">Mi Progreso</span>
+      </button>
+      <button class="sidebar-item" onclick="openPanel('panelPerfil')">
+        <span class="sidebar-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <span data-i18n="menu_perfil">Mi Perfil</span>
+      </button>
+      <button class="sidebar-item" onclick="openPanel('panelRed')">
+        <span class="sidebar-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></span>
+        <span data-i18n="menu_red">Red Kair</span>
+      </button>
+      <button class="sidebar-item" onclick="openPanel('panelAjustes')">
+        <span class="sidebar-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        <span data-i18n="menu_ajustes">Ajustes</span>
+      </button>
+    </div>
+    <div class="sidebar-footer"><div class="sidebar-footer-text" data-i18n="footer_note">Kair tiene fines de autoconocimiento. No sustituye la valoración de ningún profesional sanitario.</div></div>
+  </div>
+
+  <!-- Mi Progreso -->
+  <div class="sidebar-panel" id="panelProgreso">
+    <div class="sidebar-panel-header">
+      <button class="sidebar-panel-back" onclick="openPanel('panelMain')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> <span data-i18n="btn_back">Volver</span></button>
+      <span class="sidebar-panel-title" data-i18n="menu_progreso">Mi Progreso</span>
+    </div>
+    <div class="sidebar-panel-body" id="progresoBody"><div style="font-size:0.8rem;color:var(--text-muted);padding:20px 0;" data-i18n="login_required">Inicia sesión para ver tu progreso.</div></div>
+  </div>
+
+  <!-- Mi Perfil -->
+  <div class="sidebar-panel" id="panelPerfil">
+    <div class="sidebar-panel-header">
+      <button class="sidebar-panel-back" onclick="openPanel('panelMain')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> <span data-i18n="btn_back">Volver</span></button>
+      <span class="sidebar-panel-title" data-i18n="menu_perfil">Mi Perfil</span>
+    </div>
+    <div class="sidebar-panel-body" id="perfilBody"><div style="font-size:0.8rem;color:var(--text-muted);padding:20px 0;" data-i18n="login_required">Inicia sesión para ver tu perfil.</div></div>
+  </div>
+
+  <!-- Red Kair -->
+  <div class="sidebar-panel" id="panelRed">
+    <div class="sidebar-panel-header">
+      <button class="sidebar-panel-back" onclick="openPanel('panelMain')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> <span data-i18n="btn_back">Volver</span></button>
+      <span class="sidebar-panel-title" data-i18n="menu_red">Red Kair</span>
+    </div>
+    <div class="sidebar-panel-body">
+      <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin-bottom:14px;" data-i18n="red_desc">Profesionales y centros que forman parte del ecosistema Kair.</p>
+      <div class="asociados-grid">
+        <div class="asociado-card"><div class="asociado-name" data-i18n="asociado_1">Clínica integrativa</div><div class="asociado-tag" data-i18n="proximamente">Próximamente</div></div>
+        <div class="asociado-card"><div class="asociado-name" data-i18n="asociado_2">Psicología clínica</div><div class="asociado-tag" data-i18n="proximamente">Próximamente</div></div>
+        <div class="asociado-card"><div class="asociado-name" data-i18n="asociado_3">Nutrición funcional</div><div class="asociado-tag" data-i18n="proximamente">Próximamente</div></div>
+        <div class="asociado-card"><div class="asociado-name" data-i18n="asociado_4">Fitoterapia clínica</div><div class="asociado-tag" data-i18n="proximamente">Próximamente</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ajustes -->
+  <div class="sidebar-panel" id="panelAjustes">
+    <div class="sidebar-panel-header">
+      <button class="sidebar-panel-back" onclick="openPanel('panelMain')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> <span data-i18n="btn_back">Volver</span></button>
+      <span class="sidebar-panel-title" data-i18n="menu_ajustes">Ajustes</span>
+    </div>
+    <div class="sidebar-panel-body">
+      <div class="setting-row">
+        <div><div class="setting-label" data-i18n="setting_darkmode">Modo oscuro</div><div class="setting-desc" data-i18n="setting_darkmode_desc">Adapta los colores al entorno</div></div>
+        <label class="toggle"><input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)"/><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label" data-i18n="setting_lang">Idioma</div><div class="setting-desc" data-i18n="setting_lang_desc">Idioma de la interfaz</div></div>
+        <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
+          <option value="es">Castellano</option>
+          <option value="va">Valencià</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- APP PRINCIPAL -->
+<div class="app-wrapper">
+  <div class="app-card">
+    <!-- ONBOARDING -->
+    <div id="onboardingOverlay" class="onboarding-overlay">
+      <div class="onb-progress"><div id="progressInner" class="onb-progress-inner"></div></div>
+      <div id="onbStepLabel" class="onb-step-label"></div>
+      <div id="onbTitle" class="onb-title"></div>
+      <div id="onbText" class="onb-text"></div>
+      <div class="onb-actions">
+        <button class="onb-btn" onclick="nextOnboardingStep()" id="onbBtn">Continuar</button>
+        <div class="onb-dots" id="onbDots"></div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- CABECERA -->
+      <div class="kair-header">
+        <div class="kair-logo">
+          <svg width="28" height="28" viewBox="0 0 100 100"><line x1="34" y1="15" x2="34" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><line x1="41" y1="38" x2="72" y2="15" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><line x1="41" y1="62" x2="72" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><circle cx="54" cy="50" r="7.5" fill="#2ac6a8"/></svg>
+          <span class="kair-wordmark">kair</span>
+        </div>
+        <button class="menu-btn" onclick="openSidebar()"><span></span><span></span><span></span></button>
+      </div>
+
+      <!-- USER BAR -->
+      <div id="userBar" class="user-bar">
+        <div class="user-bar-left">
+          <span class="user-bar-id" id="userBarId"></span>
+        </div>
+        <button class="btn-logout" onclick="logout()" data-i18n="btn_logout">Cerrar sesión</button>
+      </div>
+
+      <!-- LOGIN BAR -->
+      <div id="loginBar" class="login-bar">
+        <input id="loginInput" type="text" data-i18n-placeholder="login_placeholder" placeholder="Accede con tu ID para recomendaciones personalizadas" onkeydown="if(event.key==='Enter')loginFromBar()"/>
+        <button class="btn-login" onclick="loginFromBar()" data-i18n="btn_login">Entrar</button>
+      </div>
+      <div id="loginError" class="login-error"></div>
+
+      <div class="page-title" data-i18n="page_title">Registro diario</div>
+      <div class="page-subtitle" data-i18n="page_subtitle">Responde las cinco preguntas y recibe tus recomendaciones del día.</div>
+
+      <!-- RACHA VISUAL -->
+      <div class="streak-widget" id="streakWidget">
+        <div class="streak-widget-header">
+          <div class="streak-count-wrap">
+            <span class="streak-num" id="streakNum">0</span>
+            <span class="streak-unit" data-i18n="streak_days">días</span>
+          </div>
+          <span class="streak-label-text" data-i18n="streak_label">Racha activa</span>
+        </div>
+        <div class="streak-dots" id="streakDots"></div>
+        <div class="streak-motivation" id="streakMotivation"></div>
+      </div>
+
+      <!-- INSIGHT -->
+      <div id="insightCard" class="section-card" style="display:none;">
+        <div class="section-header">
+          <span class="section-title" data-i18n="section_insight">Insight</span>
+          <span class="section-tag" id="insightTag"></span>
+        </div>
+        <div id="insightText" class="insight-body"></div>
+        <div id="insightExtra"></div>
+      </div>
+
+      <!-- SLIDERS -->
+      <div class="section-card">
+        <div class="section-header"><span class="section-title" data-i18n="section_estado">Estado de hoy</span></div>
+        <div class="eva-block">
+          <div class="eva-question" data-i18n="q_tristeza">¿Cuán triste te has sentido hoy?</div>
+          <div class="eva-scale"><span data-i18n="escala_nada">0 · Nada</span><span data-i18n="escala_extremo">10 · Extremadamente</span></div>
+          <div class="eva-row"><input type="range" min="0" max="10" value="0" id="slide-tristeza"/><span id="val-tristeza" class="eva-val">0</span></div>
+        </div>
+        <div class="eva-block">
+          <div class="eva-question" data-i18n="q_estres">¿Cuán estresado/a te has sentido hoy?</div>
+          <div class="eva-scale"><span data-i18n="escala_nada">0 · Nada</span><span data-i18n="escala_extremo">10 · Extremadamente</span></div>
+          <div class="eva-row"><input type="range" min="0" max="10" value="0" id="slide-estres"/><span id="val-estres" class="eva-val">0</span></div>
+        </div>
+        <div class="eva-block">
+          <div class="eva-question" data-i18n="q_fatiga">¿Cuán fatigado/a te has sentido hoy?</div>
+          <div class="eva-scale"><span data-i18n="escala_nada">0 · Nada</span><span data-i18n="escala_extremo">10 · Extremadamente</span></div>
+          <div class="eva-row"><input type="range" min="0" max="10" value="0" id="slide-fatiga"/><span id="val-fatiga" class="eva-val">0</span></div>
+        </div>
+        <div class="eva-block">
+          <div class="eva-question" data-i18n="q_sueno">¿Cómo valorarías la calidad de tu sueño?</div>
+          <div class="eva-scale"><span data-i18n="escala_muymal">0 · Muy mala</span><span data-i18n="escala_muybien">10 · Muy buena</span></div>
+          <div class="eva-row"><input type="range" min="0" max="10" value="5" id="slide-sueno"/><span id="val-sueno" class="eva-val">5</span></div>
+        </div>
+        <div class="eva-block">
+          <div class="eva-question" data-i18n="q_digestion">¿Cuán intensas han sido tus molestias digestivas hoy?</div>
+          <div class="eva-scale"><span data-i18n="escala_sin">0 · Sin síntomas</span><span data-i18n="escala_intensas">10 · Muy intensas</span></div>
+          <div class="eva-row"><input type="range" min="0" max="10" value="0" id="slide-digestion"/><span id="val-digestion" class="eva-val">0</span></div>
+        </div>
+        <button id="saveBtn" class="primary-btn" onclick="saveToday()" data-i18n="btn_registrar">Registrar</button>
+      </div>
+
+      <!-- RECOMENDACIONES -->
+      <div class="section-card">
+        <div class="section-header">
+          <span class="section-title" data-i18n="section_recs">Recomendaciones</span>
+          <span id="recAiTag" class="section-tag" style="display:none;" data-i18n="tag_ia">Personalizadas por IA</span>
+        </div>
+        <div id="recContainer"><p class="rec-empty" data-i18n="rec_empty">Registra tu estado para ver tus recomendaciones del día.</p></div>
+      </div>
+
+      <div class="footer-note" data-i18n="footer_legal">Kair tiene fines de autoconocimiento. No sustituye la valoración de ningún profesional sanitario. Las referencias científicas incluidas son orientativas.</div>
+      <button class="reminder-btn" id="reminderBtnEl" onclick="openReminderModal()" data-i18n="btn_recordatorio">Crear recordatorio diario</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════════════
+let SUPABASE_URL='', SUPABASE_ANON_KEY='', GEMINI_API_KEY='';
+const EVIDENCIA_TABLE='evidencia';
+
+async function cargarConfig(){
+  try{
+    const r=await fetch('/api/config');
+    if(!r.ok) throw new Error('config error');
+    const cfg=await r.json();
+    SUPABASE_URL=cfg.SUPABASE_URL||''; SUPABASE_ANON_KEY=cfg.SUPABASE_ANON_KEY||''; GEMINI_API_KEY=cfg.GEMINI_API_KEY||'';
+  }catch(e){console.error('Error cargando config:',e);}
+}
+
+// ══════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════════════════════
+const PERFIL_MEDIO={cse_total:18,cea_total:8,mae_perfil:'calma',cpp_neuroticismo:0,cpp_conciencia:0,cea5:1,cea6:1,cea8:1,cea10:1,cea3:2,edad:35,sexo:null,medicacion:null,alergias:null};
+let currentId=null,userProfile=null,modoInvitado=true,ultimosRegistros=[],evidenciaCache=null;
+
+// ══════════════════════════════════════════════════════════
+// IDIOMAS — completo, incluye alerts, errores, etc.
+// ══════════════════════════════════════════════════════════
+const I18N={
+  es:{
+    splash_tagline:'bienestar desde dentro',
+    legal_title:'Aviso de uso', legal_body1:'Kair tiene fines educativos y de autoconocimiento. No está diseñada para diagnosticar, tratar ni sustituir la valoración de ningún profesional sanitario.', legal_body2:'Las recomendaciones son orientativas. Si tus síntomas empeoran o tienes pensamientos de hacerte daño, contacta con un profesional o llama al 112.', legal_body3:'Al continuar, aceptas el uso de la app bajo tu propia responsabilidad.', legal_btn:'Aceptar y continuar',
+    reminder_title:'Recordatorio diario', reminder_body:'Selecciona la hora a la que quieres recibir tu recordatorio. Necesitas tener la app instalada en tu dispositivo.',
+    btn_cancel:'Cancelar', btn_set_reminder:'Activar recordatorio', btn_install:'Instalar', btn_send:'Enviar', btn_logout:'Cerrar sesión', btn_login:'Entrar', btn_registrar:'Registrar', btn_recordatorio:'Crear recordatorio diario', btn_back:'Volver',
+    login_placeholder:'Accede con tu ID para recomendaciones personalizadas',
+    page_title:'Registro diario', page_subtitle:'Responde las cinco preguntas y recibe tus recomendaciones del día.',
+    section_insight:'Insight', section_estado:'Estado de hoy', section_recs:'Recomendaciones', tag_ia:'Personalizadas por IA',
+    q_tristeza:'¿Cuán triste te has sentido hoy?', q_estres:'¿Cuán estresado/a te has sentido hoy?', q_fatiga:'¿Cuán fatigado/a te has sentido hoy?', q_sueno:'¿Cómo valorarías la calidad de tu sueño?', q_digestion:'¿Cuán intensas han sido tus molestias digestivas hoy?',
+    escala_nada:'0 · Nada', escala_extremo:'10 · Extremadamente', escala_muymal:'0 · Muy mala', escala_muybien:'10 · Muy buena', escala_sin:'0 · Sin síntomas', escala_intensas:'10 · Muy intensas',
+    rec_empty:'Registra tu estado para ver tus recomendaciones del día.',
+    footer_note:'Kair tiene fines de autoconocimiento. No sustituye la valoración de ningún profesional sanitario.',
+    footer_legal:'Kair tiene fines de autoconocimiento. No sustituye la valoración de ningún profesional sanitario. Las referencias científicas incluidas son orientativas.',
+    menu_progreso:'Mi Progreso', menu_perfil:'Mi Perfil', menu_red:'Red Kair', menu_ajustes:'Ajustes',
+    setting_darkmode:'Modo oscuro', setting_darkmode_desc:'Adapta los colores al entorno', setting_lang:'Idioma', setting_lang_desc:'Idioma de la interfaz',
+    red_desc:'Profesionales y centros que forman parte del ecosistema Kair.', asociado_1:'Clínica integrativa', asociado_2:'Psicología clínica', asociado_3:'Nutrición funcional', asociado_4:'Fitoterapia clínica', proximamente:'Próximamente',
+    streak_days:'días', streak_label:'Racha activa',
+    prog_no_registros:'Aún no tienes registros. ¡Haz tu primer registro hoy!',
+    prog_registros_total:'Registros totales', prog_primer_registro:'Primer registro', prog_media_sueno:'Media sueño',
+    prog_medias:'Medias', prog_evolucion:'Evolución (14 días)', prog_descargar:'Descargar informe (PDF)',
+    prog_tristeza:'Tristeza', prog_estres:'Estrés', prog_fatiga:'Fatiga', prog_digestion:'Digestión',
+    perf_emocional:'Perfil emocional (MAE)', perf_estres:'Estrés percibido (CSE)', perf_alimentacion:'Puntuación alimentaria (CEA)',
+    perf_neuroticismo:'Neuroticismo (CPP)', perf_medicacion:'Medicación', perf_alergias:'Alergias',
+    perf_alto:'Alto', perf_bajo:'Bajo', perf_medio:'Medio',
+    perf_rehacer_desc:'Si han cambiado aspectos de tu personalidad, alimentación o estado psicológico, puedes rehacer los cuestionarios. Las recomendaciones se adaptarán al nuevo perfil.',
+    perf_rehacer_btn:'Rehacer cuestionarios',
+    mae_naturaleza:'Naturaleza', mae_intelecto:'Intelecto', mae_arte:'Arte', mae_social:'Social', mae_exploracion:'Exploración', mae_calma:'Calma',
+    streak_0:'Haz tu primer registro hoy para empezar tu racha.',
+    streak_1:'Primer día. El primer paso es el más importante.',
+    streak_3:'Tres días seguidos. Estás creando un hábito.',
+    streak_7:'Una semana completa. Eso merece reconocerlo.',
+    streak_14:'Dos semanas. Los cambios ya están en marcha.',
+    streak_30:'Un mes. Esto ya forma parte de ti.',
+    streak_long:'Llevas {n} días. Eso es constancia real.',
+    gaia_desc:'Asistente de bienestar · Kair', gaia_welcome:'Hola. Soy GAIA, tu asistente de bienestar dentro de Kair. Puedo explicarte cómo funcionan los suplementos, plantas y hábitos que recomendamos. Inicia sesión con tu ID para respuestas personalizadas.', gaia_placeholder:'Escribe tu consulta...',
+    gaia_limit_ok:'{n} consultas disponibles hoy', gaia_limit_low:'Solo {n} consultas disponibles', gaia_limit_out:'Has llegado al límite de consultas de hoy. Vuelve mañana.',
+    social_header:'Síguenos',
+    login_required:'Inicia sesión para ver esta sección.',
+    err_id_not_found:'ID no encontrado. Verifica que sea el mismo que usaste en los cuestionarios.',
+    err_connection:'Error de conexión. Inténtalo en unos minutos.',
+    err_saving:'Error al guardar. Inténtalo de nuevo.',
+    saved_ok:'Registrado',
+    saving:'Guardando...',
+    loading_recs:'Generando recomendaciones personalizadas...',
+    install_help:'iPhone / iPad (Safari)\nPulsa el botón de compartir → "Añadir a pantalla de inicio"\n\nAndroid (Chrome)\nMenú (⋮) → "Añadir a pantalla de inicio"\n\nMac (Safari)\nBarra de menú → Archivo → "Añadir al Dock"',
+    reminder_downloaded:'Archivo descargado. Ábrelo para añadirlo a tu calendario.',
+    select_time:'Selecciona una hora.',
+    push_granted:'Notificaciones activadas. Recibirás un recordatorio cada día a la hora elegida.',
+    push_denied:'No se pudo activar las notificaciones. Revisa los permisos en tu navegador.',
+    push_no_sw:'Tu dispositivo no es compatible con notificaciones push. Se ha descargado un archivo de calendario como alternativa.',
+    onb_step:'Paso {n} de {total}',
+    onb_btn_continue:'Continuar', onb_btn_finish:'Empezar',
+    insight_equilibrio:'En equilibrio', insight_mejora:'Mejorando',
+    insight_primero:'Primer registro', insight_normal:'',
+    insight_extra_equilibrio:'Lo que haces está funcionando. Mantén el ritmo sin añadir más exigencia.',
+    insight_extra_recaida:'Los altibajos son parte del proceso. No tienes que empezar de cero — los hábitos que te llevaron al equilibrio siguen ahí.',
+    insight_extra_crisis:'Si te estás sintiendo desbordado/a, habla con alguien de confianza. En España puedes llamar al 024 (gratuito y confidencial) o al 112 si es una urgencia.',
+    insight_texto_primero:'Este es tu primer registro. A partir de aquí empezamos a ver tu evolución.',
+    gaia_out_of_domain:'Eso está fuera de lo que puedo ayudarte en Kair. Si tienes alguna pregunta sobre tus recomendaciones o tu bienestar, aquí estoy.',
+    gaia_crisis_msg:'Lo que describes me preocupa y quiero que sepas que no tienes que estar solo/a con eso.\n\nSi estás teniendo pensamientos de hacerte daño o sientes que no puedes más, por favor contacta con alguien ahora:\n\n· 024 — Línea de atención a la conducta suicida (España). Gratuita, confidencial, 24h.\n· 112 — Emergencias.\n· Puedes acudir a urgencias de tu hospital más cercano o llamar a alguien de confianza.\n\nKair no es el lugar adecuado para este momento. Mereces apoyo real.',
+  },
+  va:{
+    splash_tagline:'benestar des de dins',
+    legal_title:'Avís d\'ús', legal_body1:'Kair té fins educatius i d\'autoconeixement. No està dissenyada per diagnosticar, tractar ni substituir la valoració de cap professional sanitari.', legal_body2:'Les recomanacions són orientatives. Si els teus símptomes empitjoren o tens pensaments de fer-te mal, contacta amb un professional o truca al 112.', legal_body3:'En continuar, acceptes l\'ús de l\'app sota la teua pròpia responsabilitat.', legal_btn:'Acceptar i continuar',
+    reminder_title:'Recordatori diari', reminder_body:'Selecciona l\'hora a la qual vols rebre el teu recordatori. Has de tenir l\'app instal·lada al teu dispositiu.',
+    btn_cancel:'Cancel·lar', btn_set_reminder:'Activar recordatori', btn_install:'Instal·lar', btn_send:'Enviar', btn_logout:'Tancar sessió', btn_login:'Entrar', btn_registrar:'Registrar', btn_recordatorio:'Crear recordatori diari', btn_back:'Tornar',
+    login_placeholder:'Accedeix amb el teu ID per a recomanacions personalitzades',
+    page_title:'Registre diari', page_subtitle:'Respon les cinc preguntes i rep les teues recomanacions del dia.',
+    section_insight:'Insight', section_estado:'Estat d\'avui', section_recs:'Recomanacions', tag_ia:'Personalitzades per IA',
+    q_tristeza:'Com de trist/a t\'has sentit avui?', q_estres:'Com d\'estressat/ada t\'has sentit avui?', q_fatiga:'Com de fatigat/ada t\'has sentit avui?', q_sueno:'Com valoraries la qualitat del teu son?', q_digestion:'Com d\'intenses han sigut les teues molèsties digestives avui?',
+    escala_nada:'0 · Gens', escala_extremo:'10 · Extremadament', escala_muymal:'0 · Molt mala', escala_muybien:'10 · Molt bona', escala_sin:'0 · Sense símptomes', escala_intensas:'10 · Molt intenses',
+    rec_empty:'Registra el teu estat per veure les recomanacions del dia.',
+    footer_note:'Kair té fins d\'autoconeixement. No substitueix la valoració de cap professional sanitari.',
+    footer_legal:'Kair té fins d\'autoconeixement. No substitueix la valoració de cap professional sanitari. Les referències científiques incloses són orientatives.',
+    menu_progreso:'El Meu Progrés', menu_perfil:'El Meu Perfil', menu_red:'Xarxa Kair', menu_ajustes:'Ajustos',
+    setting_darkmode:'Mode fosc', setting_darkmode_desc:'Adapta els colors a l\'entorn', setting_lang:'Idioma', setting_lang_desc:'Idioma de la interfície',
+    red_desc:'Professionals i centres que formen part de l\'ecosistema Kair.', asociado_1:'Clínica integrativa', asociado_2:'Psicologia clínica', asociado_3:'Nutrició funcional', asociado_4:'Fitoteràpia clínica', proximamente:'Pròximament',
+    streak_days:'dies', streak_label:'Ratxa activa',
+    prog_no_registros:'Encara no tens registres. Fes el teu primer registre avui!',
+    prog_registros_total:'Registres totals', prog_primer_registro:'Primer registre', prog_media_sueno:'Mitjana son',
+    prog_medias:'Mitjanes', prog_evolucion:'Evolució (14 dies)', prog_descargar:'Descarregar informe (PDF)',
+    prog_tristeza:'Tristesa', prog_estres:'Estrés', prog_fatiga:'Fatiga', prog_digestion:'Digestió',
+    perf_emocional:'Perfil emocional (MAE)', perf_estres:'Estrés percebut (CSE)', perf_alimentacion:'Puntuació alimentària (CEA)',
+    perf_neuroticismo:'Neuroticisme (CPP)', perf_medicacion:'Medicació', perf_alergias:'Al·lèrgies',
+    perf_alto:'Alt', perf_bajo:'Baix', perf_medio:'Mig',
+    perf_rehacer_desc:'Si han canviat aspectes de la teua personalitat, alimentació o estat psicològic, pots refer els qüestionaris. Les recomanacions s\'adaptaran al nou perfil.',
+    perf_rehacer_btn:'Refer qüestionaris',
+    mae_naturaleza:'Naturalesa', mae_intelecto:'Intel·lecte', mae_arte:'Art', mae_social:'Social', mae_exploracion:'Exploració', mae_calma:'Calma',
+    streak_0:'Fes el teu primer registre avui per a començar la teua ratxa.',
+    streak_1:'Primer dia. El primer pas és el més important.',
+    streak_3:'Tres dies seguits. Estàs creant un hàbit.',
+    streak_7:'Una setmana completa. Açò mereix reconèixer-ho.',
+    streak_14:'Dues setmanes. Els canvis ja estan en marxa.',
+    streak_30:'Un mes. Açò ja forma part de tu.',
+    streak_long:'Portes {n} dies. Açò és constància real.',
+    gaia_desc:'Assistent de benestar · Kair', gaia_welcome:'Hola. Sóc GAIA, el teu assistent de benestar dins de Kair. Puc explicar-te com funcionen els suplements, plantes i hàbits que recomanem. Inicia sessió amb el teu ID per a respostes personalitzades.', gaia_placeholder:'Escriu la teua consulta...',
+    gaia_limit_ok:'{n} consultes disponibles avui', gaia_limit_low:'Sols {n} consultes disponibles', gaia_limit_out:'Has arribat al límit de consultes d\'avui. Torna demà.',
+    social_header:'Segueix-nos',
+    login_required:'Inicia sessió per a veure aquesta secció.',
+    err_id_not_found:'ID no trobat. Verifica que siga el mateix que vas usar als qüestionaris.',
+    err_connection:'Error de connexió. Intenta-ho en uns minuts.',
+    err_saving:'Error en guardar. Intenta-ho de nou.',
+    saved_ok:'Registrat',
+    saving:'Guardant...',
+    loading_recs:'Generant recomanacions personalitzades...',
+    install_help:'iPhone / iPad (Safari)\nPrem el botó de compartir → "Afegir a pantalla d\'inici"\n\nAndroid (Chrome)\nMenú (⋮) → "Afegir a pantalla d\'inici"',
+    reminder_downloaded:'Fitxer descarregat. Obri\'l per a afegir-lo al teu calendari.',
+    select_time:'Selecciona una hora.',
+    push_granted:'Notificacions activades. Rebràs un recordatori cada dia a l\'hora triada.',
+    push_denied:'No s\'han pogut activar les notificacions. Revisa els permisos del teu navegador.',
+    push_no_sw:'El teu dispositiu no és compatible amb notificacions push.',
+    onb_step:'Pas {n} de {total}',
+    onb_btn_continue:'Continuar', onb_btn_finish:'Començar',
+    insight_equilibrio:'En equilibri', insight_mejora:'Millorant', insight_primero:'Primer registre', insight_normal:'',
+    insight_extra_equilibrio:'El que fas està funcionant. Manté el ritme sense afegir més exigència.',
+    insight_extra_recaida:'Els alts i baixos formen part del procés. No has de començar de zero.',
+    insight_extra_crisis:'Si t\'estàs sentint desbordat/ada, parla amb algú de confiança. A Espanya pots trucar al 024 (gratuït i confidencial) o al 112 en cas d\'urgència.',
+    insight_texto_primero:'Aquest és el teu primer registre. A partir d\'aquí comencem a veure la teua evolució.',
+    gaia_out_of_domain:'Açò està fora del que puc ajudar-te a Kair. Si tens alguna pregunta sobre les teues recomanacions o el teu benestar, ací estic.',
+    gaia_crisis_msg:'El que descrius em preocupa i vull que sàpigues que no has d\'estar sol/a amb açò.\n\nSi estàs tenint pensaments de fer-te mal o sents que no pots més, contacta amb algú ara:\n\n· 024 — Línia d\'atenció a la conducta suïcida (Espanya). Gratuïta, confidencial, 24h.\n· 112 — Emergències.\n\nKair no és el lloc adequat per a aquest moment. Mereixes suport real.',
+  },
+  en:{
+    splash_tagline:'wellbeing from within',
+    legal_title:'Terms of use', legal_body1:'Kair is for educational and self-awareness purposes only. It is not designed to diagnose, treat, or replace the assessment of any healthcare professional.', legal_body2:'Recommendations are for guidance only. If your symptoms worsen or you have thoughts of harming yourself, contact a professional or call emergency services.', legal_body3:'By continuing, you accept the use of the app at your own responsibility.', legal_btn:'Accept and continue',
+    reminder_title:'Daily reminder', reminder_body:'Select the time at which you would like to receive your daily reminder. You need to have the app installed on your device.',
+    btn_cancel:'Cancel', btn_set_reminder:'Set reminder', btn_install:'Install', btn_send:'Send', btn_logout:'Sign out', btn_login:'Sign in', btn_registrar:'Log', btn_recordatorio:'Create daily reminder', btn_back:'Back',
+    login_placeholder:'Sign in with your ID for personalised recommendations',
+    page_title:'Daily log', page_subtitle:'Answer five questions and receive your daily recommendations.',
+    section_insight:'Insight', section_estado:'Today\'s status', section_recs:'Recommendations', tag_ia:'AI personalised',
+    q_tristeza:'How sad have you felt today?', q_estres:'How stressed have you felt today?', q_fatiga:'How fatigued have you felt today?', q_sueno:'How would you rate the quality of your sleep?', q_digestion:'How intense were your digestive symptoms today?',
+    escala_nada:'0 · None', escala_extremo:'10 · Extremely', escala_muymal:'0 · Very poor', escala_muybien:'10 · Very good', escala_sin:'0 · No symptoms', escala_intensas:'10 · Very intense',
+    rec_empty:'Log your status to see today\'s recommendations.',
+    footer_note:'Kair is for self-awareness purposes only. It does not replace the assessment of any healthcare professional.',
+    footer_legal:'Kair is for self-awareness purposes only. It does not replace any healthcare professional\'s assessment. Scientific references are for guidance only.',
+    menu_progreso:'My Progress', menu_perfil:'My Profile', menu_red:'Kair Network', menu_ajustes:'Settings',
+    setting_darkmode:'Dark mode', setting_darkmode_desc:'Adjust colours to your environment', setting_lang:'Language', setting_lang_desc:'Interface language',
+    red_desc:'Professionals and centres that are part of the Kair ecosystem.', asociado_1:'Integrative clinic', asociado_2:'Clinical psychology', asociado_3:'Functional nutrition', asociado_4:'Clinical phytotherapy', proximamente:'Coming soon',
+    streak_days:'days', streak_label:'Active streak',
+    prog_no_registros:'No entries yet. Log your first entry today!',
+    prog_registros_total:'Total entries', prog_primer_registro:'First entry', prog_media_sueno:'Avg. sleep',
+    prog_medias:'Averages', prog_evolucion:'Progress (14 days)', prog_descargar:'Download report (PDF)',
+    prog_tristeza:'Sadness', prog_estres:'Stress', prog_fatiga:'Fatigue', prog_digestion:'Digestion',
+    perf_emocional:'Emotional profile (MAE)', perf_estres:'Perceived stress (CSE)', perf_alimentacion:'Diet score (CEA)',
+    perf_neuroticismo:'Neuroticism (CPP)', perf_medicacion:'Medication', perf_alergias:'Allergies',
+    perf_alto:'High', perf_bajo:'Low', perf_medio:'Medium',
+    perf_rehacer_desc:'If aspects of your personality, diet or psychological state have changed, you can redo the questionnaires. Your recommendations will adapt to the new profile.',
+    perf_rehacer_btn:'Redo questionnaires',
+    mae_naturaleza:'Nature', mae_intelecto:'Intellect', mae_arte:'Art', mae_social:'Social', mae_exploracion:'Exploration', mae_calma:'Calm',
+    streak_0:'Log your first entry today to start your streak.',
+    streak_1:'Day one. The first step is the most important.',
+    streak_3:'Three days in a row. You\'re building a habit.',
+    streak_7:'A full week. That\'s worth acknowledging.',
+    streak_14:'Two weeks. Change is already underway.',
+    streak_30:'One month. This is part of you now.',
+    streak_long:'{n} days. That\'s real consistency.',
+    gaia_desc:'Wellness assistant · Kair', gaia_welcome:'Hi. I\'m GAIA, your wellness assistant in Kair. I can explain how the supplements, plants and habits we recommend work. Sign in with your ID for personalised responses.', gaia_placeholder:'Type your question...',
+    gaia_limit_ok:'{n} queries available today', gaia_limit_low:'Only {n} queries left', gaia_limit_out:'You\'ve reached today\'s query limit. Come back tomorrow.',
+    social_header:'Follow us',
+    login_required:'Sign in to view this section.',
+    err_id_not_found:'ID not found. Make sure it\'s the same one you used in the questionnaires.',
+    err_connection:'Connection error. Please try again in a few minutes.',
+    err_saving:'Error saving. Please try again.',
+    saved_ok:'Logged',
+    saving:'Saving...',
+    loading_recs:'Generating personalised recommendations...',
+    install_help:'iPhone / iPad (Safari)\nTap Share → "Add to Home Screen"\n\nAndroid (Chrome)\nMenu (⋮) → "Add to Home Screen"\n\nMac (Safari)\nMenu bar → File → "Add to Dock"',
+    reminder_downloaded:'File downloaded. Open it to add it to your calendar.',
+    select_time:'Please select a time.',
+    push_granted:'Notifications enabled. You\'ll receive a daily reminder at the selected time.',
+    push_denied:'Could not enable notifications. Please check your browser permissions.',
+    push_no_sw:'Your device does not support push notifications.',
+    onb_step:'Step {n} of {total}',
+    onb_btn_continue:'Continue', onb_btn_finish:'Get started',
+    insight_equilibrio:'In balance', insight_mejora:'Improving', insight_primero:'First entry', insight_normal:'',
+    insight_extra_equilibrio:'What you\'re doing is working. Keep the rhythm without adding more pressure.',
+    insight_extra_recaida:'Ups and downs are part of the process. You don\'t have to start from scratch.',
+    insight_extra_crisis:'If you\'re feeling overwhelmed, please talk to someone you trust. You can call 116 123 (Samaritans, UK/IE), 988 (USA), or your local emergency number.',
+    insight_texto_primero:'This is your first entry. From here we start tracking your progress.',
+    gaia_out_of_domain:'That\'s outside what I can help you with in Kair. If you have a question about your recommendations or wellbeing, I\'m here.',
+    gaia_crisis_msg:'What you\'re describing concerns me, and I want you to know you don\'t have to face this alone.\n\nIf you\'re having thoughts of harming yourself or feel like you can\'t cope, please reach out now:\n\n· 116 123 — Samaritans (UK/IE). Free, confidential, 24/7.\n· 988 — Suicide & Crisis Lifeline (USA).\n· 112 — Emergency services (EU).\n\nKair is not the right place for this moment. You deserve real support.',
+  }
+};
+
+let currentLang='es';
+
+function t(key,vars){
+  const d=I18N[currentLang]||I18N.es;
+  let s=d[key]||I18N.es[key]||key;
+  if(vars) Object.entries(vars).forEach(([k,v])=>{ s=s.replace('{'+k+'}',v); });
+  return s;
+}
+
+function setLang(lang){
+  currentLang=lang;
+  localStorage.setItem('kair_lang',lang);
+  document.getElementById('langSelect').value=lang;
+  document.documentElement.lang=lang==='va'?'ca':lang;
+  applyI18n();
+}
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.dataset.i18n;
+    const v=t(key);
+    if(v&&v!==key) el.textContent=v;
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key=el.dataset.i18nPlaceholder;
+    const v=t(key);
+    if(v&&v!==key) el.placeholder=v;
+  });
+}
+
+function detectLang(){
+  const stored=localStorage.getItem('kair_lang');
+  if(stored&&I18N[stored]) return stored;
+  const nav=(navigator.language||'es').toLowerCase();
+  if(nav.startsWith('ca')||nav.startsWith('va')) return 'va';
+  if(nav.startsWith('en')) return 'en';
+  return 'es';
+}
+
+// ══════════════════════════════════════════════════════════
+// MODO OSCURO
+// ══════════════════════════════════════════════════════════
+function toggleDarkMode(on){
+  document.documentElement.setAttribute('data-theme',on?'dark':'light');
+  localStorage.setItem('kair_dark',on?'1':'0');
+  document.getElementById('darkModeToggle').checked=on;
+}
+function initDarkMode(){
+  const stored=localStorage.getItem('kair_dark');
+  const on=stored!==null?stored==='1':window.matchMedia('(prefers-color-scheme: dark)').matches;
+  toggleDarkMode(on);
+}
+
+// ══════════════════════════════════════════════════════════
+// SPLASH — ocultar tras animación
+// ══════════════════════════════════════════════════════════
+function initSplash(){
+  const splash=document.getElementById('splash');
+  // Mostrar splash 5 segundos, luego fade out de 0.7s
+  setTimeout(()=>{
+    splash.classList.add('fading');
+    splash.addEventListener('transitionend',()=>{ splash.classList.add('done'); },{once:true});
+  },5000);
+  // Modal legal aparece tras el splash
+  setTimeout(()=>{ document.getElementById('legalModal').style.display='flex'; },5800);
+}
+
+// ══════════════════════════════════════════════════════════
+// MENÚ LATERAL
+// ══════════════════════════════════════════════════════════
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+  openPanel('panelMain');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function openPanel(id){
+  document.querySelectorAll('.sidebar-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='panelProgreso') renderProgresoPanel();
+  if(id==='panelPerfil') renderPerfilPanel();
+}
+
+// ══════════════════════════════════════════════════════════
+// PANEL PROGRESO
+// ══════════════════════════════════════════════════════════
+function renderProgresoPanel(){
+  const body=document.getElementById('progresoBody');
+  if(!currentId||modoInvitado){body.innerHTML=`<div style="font-size:0.8rem;color:var(--text-muted);padding:20px 0;">${t('login_required')}</div>`;return;}
+  if(!ultimosRegistros||ultimosRegistros.length===0){body.innerHTML=`<div style="font-size:0.8rem;color:var(--text-muted);padding:20px 0;">${t('prog_no_registros')}</div>`;return;}
+  const total=ultimosRegistros.length;
+  const racha=calcularRacha(ultimosRegistros);
+  const fechaInicio=ultimosRegistros[ultimosRegistros.length-1]?.fecha||'—';
+  const medias=['tristeza','estres','fatiga','sueno','digestion'].reduce((acc,k)=>{acc[k]=(ultimosRegistros.reduce((s,r)=>s+(r[k]||0),0)/total).toFixed(1);return acc;},{});
+  const dimKeys=[['tristeza','prog_tristeza'],['estres','prog_estres'],['fatiga','prog_fatiga'],['digestion','prog_digestion']];
+  body.innerHTML=`
+    <div class="progress-stat-grid">
+      <div class="progress-stat-card"><div class="progress-stat-val">${total}</div><div class="progress-stat-label">${t('prog_registros_total')}</div></div>
+      <div class="progress-stat-card"><div class="progress-stat-val">${racha}</div><div class="progress-stat-label">${t('streak_label')}</div></div>
+      <div class="progress-stat-card"><div class="progress-stat-val" style="font-size:0.85rem;margin-top:4px;">${fechaInicio}</div><div class="progress-stat-label">${t('prog_primer_registro')}</div></div>
+      <div class="progress-stat-card"><div class="progress-stat-val">${medias.sueno}</div><div class="progress-stat-label">${t('prog_media_sueno')}</div></div>
+    </div>
+    <div style="font-size:0.68rem;letter-spacing:0.06em;color:var(--text-light);margin-bottom:8px;">${t('prog_medias')} · ${total} ${t('prog_registros_total').toLowerCase()}</div>
+    ${dimKeys.map(([k,lk])=>`
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:0.76rem;color:var(--text-muted);">${t(lk)}</span><span style="font-size:0.76rem;color:var(--text-main);font-weight:500;">${medias[k]}/10</span></div>
+      <div style="height:4px;background:var(--border);border-radius:999px;overflow:hidden;"><div style="height:100%;width:${medias[k]*10}%;background:var(--accent);border-radius:999px;"></div></div>
+    </div>`).join('')}
+    <div style="margin-top:16px;"><div style="font-size:0.68rem;letter-spacing:0.06em;color:var(--text-light);margin-bottom:8px;">${t('prog_evolucion')}</div><div class="chart-wrap"><canvas id="progresoCanvas" height="120"></canvas></div></div>
+    <button class="sidebar-btn" style="margin-top:16px;" onclick="exportarInforme()">${t('prog_descargar')}</button>`;
+  setTimeout(()=>renderGraficaSidebar(),50);
+}
+function renderGraficaSidebar(){
+  const canvas=document.getElementById('progresoCanvas');
+  if(!canvas||!ultimosRegistros||ultimosRegistros.length<2) return;
+  const ctx=canvas.getContext('2d');
+  const datos=ultimosRegistros.slice(0,14).reverse();
+  canvas.width=canvas.parentElement.offsetWidth||260; canvas.height=120;
+  const W=canvas.width,H=canvas.height,pad={top:14,right:10,bottom:26,left:26};
+  const cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom,n=datos.length;
+  ctx.clearRect(0,0,W,H);
+  function xP(i){return pad.left+(i/(n-1))*cw;} function yP(v){return pad.top+ch-(v/10)*ch;}
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  ctx.strokeStyle=isDark?'#2a3545':'#f0f0ec'; ctx.lineWidth=0.5;
+  [0,5,10].forEach(v=>{ctx.beginPath();ctx.moveTo(pad.left,yP(v));ctx.lineTo(pad.left+cw,yP(v));ctx.stroke();});
+  [{data:datos.map(r=>r.tristeza),color:'#b91c1c'},{data:datos.map(r=>r.estres),color:'#d97706'},{data:datos.map(r=>r.sueno),color:'#2ac6a8'}].forEach(({data,color})=>{
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(xP(i),yP(v)):ctx.lineTo(xP(i),yP(v)));ctx.stroke();
+    data.forEach((v,i)=>{ctx.fillStyle=color;ctx.beginPath();ctx.arc(xP(i),yP(v),2.5,0,Math.PI*2);ctx.fill();});
+  });
+  const tc='#9ca3af'; ctx.fillStyle=tc;ctx.font='9px system-ui';ctx.textAlign='center';
+  datos.forEach((r,i)=>{if(i%Math.ceil(n/5)===0||i===n-1)ctx.fillText(r.fecha.slice(5),xP(i),H-6);});
+  ['Tristeza','Estrés','Sueño'].forEach((label,i)=>{const c=['#b91c1c','#d97706','#2ac6a8'][i];ctx.fillStyle=c;ctx.fillRect(pad.left+i*72,2,7,7);ctx.fillStyle=tc;ctx.textAlign='left';ctx.fillText(label,pad.left+i*72+10,10);});
+}
+async function exportarInforme(){
+  if(!ultimosRegistros||ultimosRegistros.length===0||!userProfile) return;
+  const p=userProfile;
+  const total=ultimosRegistros.length;
+  const racha=calcularRacha(ultimosRegistros);
+  const fechaInicio=ultimosRegistros[ultimosRegistros.length-1]?.fecha||'—';
+  const fechaFin=ultimosRegistros[0]?.fecha||'—';
+  const maeLabel={naturaleza:'Naturaleza',intelecto:'Intelecto',arte:'Arte',social:'Social',exploracion:'Exploración',calma:'Calma'};
+
+  // Calcular medias
+  const medias=['tristeza','estres','fatiga','sueno','digestion'].reduce((acc,k)=>{
+    acc[k]=parseFloat((ultimosRegistros.reduce((s,r)=>s+(r[k]||0),0)/total).toFixed(1));
+    return acc;
+  },{});
+
+  // Tendencia: comparar primera mitad vs segunda mitad
+  const mid=Math.floor(total/2);
+  const recientes=ultimosRegistros.slice(0,mid||1);
+  const antiguos=ultimosRegistros.slice(mid||1);
+  const tendencia={};
+  ['tristeza','estres','fatiga','sueno','digestion'].forEach(k=>{
+    const mr=parseFloat((recientes.reduce((s,r)=>s+(r[k]||0),0)/recientes.length).toFixed(1));
+    const ma=parseFloat((antiguos.reduce((s,r)=>s+(r[k]||0),0)/Math.max(antiguos.length,1)).toFixed(1));
+    tendencia[k]={antes:ma,ahora:mr,delta:parseFloat((mr-ma).toFixed(1))};
+  });
+
+  // Recomendaciones más frecuentes
+  const freqMap={habito:{},suplemento:{},fitoterapia:{},tecnica:{},alimento:{}};
+  ultimosRegistros.forEach(r=>{
+    if(r.rec_habito) freqMap.habito[r.rec_habito]=(freqMap.habito[r.rec_habito]||0)+1;
+    if(r.rec_suplemento) freqMap.suplemento[r.rec_suplemento]=(freqMap.suplemento[r.rec_suplemento]||0)+1;
+    if(r.rec_fitoterapia) freqMap.fitoterapia[r.rec_fitoterapia]=(freqMap.fitoterapia[r.rec_fitoterapia]||0)+1;
+    if(r.rec_tecnica) freqMap.tecnica[r.rec_tecnica]=(freqMap.tecnica[r.rec_tecnica]||0)+1;
+  });
+  const topRec=(obj)=>Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>`<li>${k} <span style="color:#9ca3af;font-size:0.72rem;">(${v} veces)</span></li>`).join('')||'<li>Sin datos</li>';
+
+  // Análisis de evolución en texto
+  function analisisTexto(k,label,inv=false){
+    const d=tendencia[k].delta;
+    if(Math.abs(d)<0.5) return `<li><strong>${label}:</strong> estable (${medias[k]}/10)</li>`;
+    const mejora=inv?(d>0):(d<0);
+    const dir=mejora?'ha mejorado':'ha aumentado';
+    const color=mejora?'#065f46':'#92400e';
+    return `<li><strong>${label}:</strong> <span style="color:${color}">${dir} ${Math.abs(d)} puntos</span> (ahora ${tendencia[k].ahora}/10)</li>`;
+  }
+
+  // Días en equilibrio
+  const diasEquilibrio=ultimosRegistros.filter(r=>calcularEquilibrio(r)).length;
+  const pctEquilibrio=Math.round(diasEquilibrio/total*100);
+
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Kair · Informe personal</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:system-ui,-apple-system,sans-serif;background:#FAFAF8;color:#111820;padding:48px 40px;max-width:720px;margin:0 auto;}
+    .header{margin-bottom:40px;padding-bottom:20px;border-bottom:1px solid #e8e8e4;}
+    .logo{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+    .logo-word{font-size:1.1rem;font-weight:200;letter-spacing:0.28em;color:#111820;}
+    h1{font-size:1.6rem;font-weight:300;color:#111820;margin-bottom:6px;}
+    .meta{font-size:0.78rem;color:#6b7280;line-height:1.6;}
+    h2{font-size:0.7rem;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;margin:32px 0 12px;}
+    .card{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+    .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:0;}
+    .stat{border-right:1px solid #e8e8e4;padding-right:12px;}
+    .stat:last-child{border-right:none;}
+    .stat-val{font-size:1.6rem;font-weight:300;color:#1B3A2A;letter-spacing:-0.02em;}
+    .stat-label{font-size:0.68rem;color:#6b7280;margin-top:2px;}
+    .bar-row{margin-bottom:10px;}
+    .bar-header{display:flex;justify-content:space-between;margin-bottom:4px;}
+    .bar-name{font-size:0.78rem;color:#6b7280;}
+    .bar-val{font-size:0.78rem;color:#111820;font-weight:500;}
+    .bar-wrap{height:5px;background:#e8e8e4;border-radius:999px;overflow:hidden;}
+    .bar-fill{height:100%;background:#2ac6a8;border-radius:999px;}
+    ul{padding-left:16px;}
+    li{font-size:0.82rem;color:#111820;line-height:1.7;margin-bottom:2px;}
+    .accent-box{background:rgba(42,198,168,0.05);border-left:2px solid #2ac6a8;border-radius:0 8px 8px 0;padding:10px 14px;margin-top:8px;font-size:0.78rem;color:#065f46;line-height:1.5;}
+    .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e8e8e4;font-size:0.65rem;color:#9ca3af;line-height:1.5;}
+    @media print{body{padding:24px;background:#fff;}@page{margin:1.5cm;}}
+  </style>
+  </head><body>
+  <div class="header">
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 100 100"><line x1="34" y1="15" x2="34" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><line x1="41" y1="38" x2="72" y2="15" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><line x1="41" y1="62" x2="72" y2="85" stroke="#1B3A2A" stroke-width="7" stroke-linecap="round"/><circle cx="54" cy="50" r="7.5" fill="#2ac6a8"/></svg>
+      <span class="logo-word">kair</span>
+    </div>
+    <h1>Informe de bienestar</h1>
+    <div class="meta">
+      ID: ${currentId} &nbsp;·&nbsp; Del ${fechaInicio} al ${fechaFin} &nbsp;·&nbsp; ${total} registros<br>
+      Perfil emocional: ${maeLabel[p.mae_perfil]||p.mae_perfil||'—'} &nbsp;·&nbsp; Género: ${p.genero||'—'} &nbsp;·&nbsp; Edad: ${p.edad||'—'}
+    </div>
+  </div>
+
+  <h2>Resumen global</h2>
+  <div class="card">
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-val">${total}</div><div class="stat-label">Registros totales</div></div>
+      <div class="stat"><div class="stat-val">${racha}</div><div class="stat-label">Racha actual (días)</div></div>
+      <div class="stat"><div class="stat-val">${pctEquilibrio}%</div><div class="stat-label">Días en equilibrio</div></div>
+    </div>
+  </div>
+
+  <h2>Medias por dimensión</h2>
+  <div class="card">
+    ${[['tristeza','Tristeza'],['estres','Estrés'],['fatiga','Fatiga'],['sueno','Calidad del sueño'],['digestion','Molestias digestivas']].map(([k,label])=>`
+    <div class="bar-row">
+      <div class="bar-header"><span class="bar-name">${label}</span><span class="bar-val">${medias[k]}/10</span></div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${medias[k]*10}%"></div></div>
+    </div>`).join('')}
+  </div>
+
+  <h2>Análisis de evolución</h2>
+  <div class="card">
+    <p style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;line-height:1.5;">Comparación entre los registros más recientes y los anteriores:</p>
+    <ul>
+      ${analisisTexto('tristeza','Tristeza')}
+      ${analisisTexto('estres','Estrés')}
+      ${analisisTexto('fatiga','Fatiga')}
+      ${analisisTexto('sueno','Calidad del sueño',true)}
+      ${analisisTexto('digestion','Digestión')}
+    </ul>
+    ${pctEquilibrio>=60?`<div class="accent-box">En el ${pctEquilibrio}% de los registros los valores estaban dentro del rango de equilibrio (tristeza ≤2, estrés ≤3, fatiga ≤3, sueño ≥7, digestión ≤2).</div>`:''}
+  </div>
+
+  <h2>Recomendaciones más habituales</h2>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div><div style="font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:6px;">Hábito</div><ul>${topRec(freqMap.habito)}</ul></div>
+      <div><div style="font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:6px;">Suplemento</div><ul>${topRec(freqMap.suplemento)}</ul></div>
+      <div><div style="font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:6px;">Fitoterapia</div><ul>${topRec(freqMap.fitoterapia)}</ul></div>
+      <div><div style="font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:6px;">Técnica</div><ul>${topRec(freqMap.tecnica)}</ul></div>
+    </div>
+  </div>
+
+  <h2>Perfil psicológico</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Perfil emocional (MAE):</strong> ${maeLabel[p.mae_perfil]||p.mae_perfil||'—'}</li>
+      <li><strong>Estrés percibido (CSE):</strong> ${p.cse_total||0}/36 ${(p.cse_total||0)>=20?'— nivel elevado':(p.cse_total||0)>=12?'— nivel moderado':'— nivel bajo'}</li>
+      <li><strong>Puntuación alimentaria (CEA):</strong> ${p.cea_total||0} ${(p.cea_total||0)>=8?'— patrón saludable':(p.cea_total||0)>=3?'— patrón mejorable':'— patrón a mejorar'}</li>
+      <li><strong>Neuroticismo (CPP):</strong> ${(p.cpp_neuroticismo||0)>0?'Alto (mayor tendencia a la reactividad emocional)':(p.cpp_neuroticismo||0)<0?'Bajo (mayor estabilidad emocional)':'Medio'}</li>
+      ${p.medicacion?`<li><strong>Medicación:</strong> ${p.medicacion}</li>`:''}
+      ${p.alergias?`<li><strong>Alergias:</strong> ${p.alergias}</li>`:''}
+    </ul>
+  </div>
+
+  <div class="footer">
+    Informe generado el ${new Date().toLocaleDateString('es-ES',{year:'numeric',month:'long',day:'numeric'})} desde Kair.<br>
+    Este informe tiene fines de autoconocimiento. No sustituye la valoración de ningún profesional sanitario. Las referencias científicas son orientativas.
+  </div>
+  </body></html>`);
+  win.document.close();
+  win.print();
+}
+
+// ══════════════════════════════════════════════════════════
+// PANEL PERFIL
+// ══════════════════════════════════════════════════════════
+function renderPerfilPanel(){
+  const body=document.getElementById('perfilBody');
+  if(!currentId||modoInvitado||!userProfile){body.innerHTML=`<div style="font-size:0.8rem;color:var(--text-muted);padding:20px 0;">${t('login_required')}</div>`;return;}
+  const p=userProfile;
+  const maeMap={naturaleza:t('mae_naturaleza'),intelecto:t('mae_intelecto'),arte:t('mae_arte'),social:t('mae_social'),exploracion:t('mae_exploracion'),calma:t('mae_calma')};
+  const neuroLabel=p.cpp_neuroticismo>0?t('perf_alto'):p.cpp_neuroticismo<0?t('perf_bajo'):t('perf_medio');
+  body.innerHTML=`
+    <div class="perfil-field"><div class="perfil-field-label">ID</div><div class="perfil-field-val">${currentId}</div></div>
+    <div class="perfil-field"><div class="perfil-field-label">${t('perf_emocional')}</div><div class="perfil-field-val">${maeMap[p.mae_perfil]||p.mae_perfil||'—'}</div></div>
+    <div class="perfil-field"><div class="perfil-field-label">${t('perf_estres')}</div><div class="perfil-score-row"><div class="perfil-score-bar-wrap"><div class="perfil-score-bar" style="width:${Math.min((p.cse_total||0)/36*100,100)}%"></div></div><div class="perfil-score-num">${p.cse_total||0}/36</div></div></div>
+    <div class="perfil-field"><div class="perfil-field-label">${t('perf_alimentacion')}</div><div class="perfil-score-row"><div class="perfil-score-bar-wrap"><div class="perfil-score-bar" style="width:${Math.min(Math.max(((p.cea_total||0)+9)/27*100,0),100)}%"></div></div><div class="perfil-score-num">${p.cea_total||0}</div></div></div>
+    <div class="perfil-field"><div class="perfil-field-label">${t('perf_neuroticismo')}</div><div class="perfil-field-val">${neuroLabel}</div></div>
+    ${p.medicacion?`<div class="perfil-field"><div class="perfil-field-label">${t('perf_medicacion')}</div><div class="perfil-field-val">${p.medicacion}</div></div>`:''}
+    ${p.alergias?`<div class="perfil-field"><div class="perfil-field-label">${t('perf_alergias')}</div><div class="perfil-field-val">${p.alergias}</div></div>`:''}
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+      <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin-bottom:12px;">${t('perf_rehacer_desc')}</div>
+      <a href="cuestionarios.html" class="sidebar-btn primary" style="display:block;text-decoration:none;text-align:center;">${t('perf_rehacer_btn')}</a>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// RACHA VISUAL
+// ══════════════════════════════════════════════════════════
+function calcularRacha(registros){
+  if(!registros||registros.length===0) return 0;
+  const sorted=[...registros].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  let racha=0;
+  let fechaRef=new Date().toISOString().split('T')[0];
+  for(const r of sorted){
+    const d=new Date(fechaRef);d.setDate(d.getDate()-racha);
+    const esperada=d.toISOString().split('T')[0];
+    if(r.fecha===esperada){racha++;}
+    else if(racha===0&&r.fecha===restarDia(fechaRef,1)){racha++; fechaRef=r.fecha;}
+    else break;
+  }
+  return racha;
+}
+function restarDia(fechaStr,n){const d=new Date(fechaStr);d.setDate(d.getDate()-n);return d.toISOString().split('T')[0];}
+
+function renderStreakWidget(registros){
+  const widget=document.getElementById('streakWidget');
+  const numEl=document.getElementById('streakNum');
+  const dotsEl=document.getElementById('streakDots');
+  const motEl=document.getElementById('streakMotivation');
+  if(!currentId||modoInvitado){widget.style.display='none';return;}
+
+  const racha=calcularRacha(registros);
+  numEl.textContent=racha;
+  widget.style.display='block';
+
+  // 7 puntos, uno por día — todos misma altura, elegante y limpio
+  dotsEl.innerHTML='';
+  const hoy=new Date().toISOString().split('T')[0];
+  const fechasSet=new Set((registros||[]).map(r=>r.fecha));
+  const dias=['L','M','X','J','V','S','D'];
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const f=d.toISOString().split('T')[0];
+    const dayName=dias[d.getDay()===0?6:d.getDay()-1];
+    const wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;';
+    const dot=document.createElement('div');
+    dot.className='streak-dot';
+    dot.style.height='10px';
+    dot.style.width='100%';
+    dot.style.borderRadius='3px';
+    if(fechasSet.has(f)){
+      dot.classList.add(f===hoy?'today':'filled');
+    }
+    const label=document.createElement('span');
+    label.textContent=dayName;
+    label.style.cssText=`font-size:0.58rem;color:var(--text-light);letter-spacing:0.02em;`;
+    wrap.appendChild(dot);
+    wrap.appendChild(label);
+    dotsEl.appendChild(wrap);
+  }
+
+  // Mensaje motivacional
+  let msg='';
+  if(racha===0) msg=t('streak_0');
+  else if(racha===1) msg=t('streak_1');
+  else if(racha<=3) msg=t('streak_3');
+  else if(racha<=7) msg=t('streak_7');
+  else if(racha<=14) msg=t('streak_14');
+  else if(racha<=30) msg=t('streak_30');
+  else msg=t('streak_long',{n:racha});
+
+  motEl.textContent=msg;
+}
+
+// ══════════════════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════════════════
+async function sbGet(table,filters){
+  let url=`${SUPABASE_URL}/rest/v1/${table}?`;
+  Object.entries(filters).forEach(([k,v])=>{url+=`${k}=eq.${encodeURIComponent(v)}&`;});
+  url+='limit=1';
+  const r=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});
+  const d=await r.json(); return d&&d.length>0?d[0]:null;
+}
+async function sbGetMany(table,filters,order,limit=50){
+  let url=`${SUPABASE_URL}/rest/v1/${table}?`;
+  Object.entries(filters).forEach(([k,v])=>{url+=`${k}=eq.${encodeURIComponent(v)}&`;});
+  if(order) url+=`order=${order}&`;
+  url+=`limit=${limit}`;
+  const r=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});
+  return await r.json();
+}
+async function sbInsert(table,data){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`,Prefer:'return=representation'},body:JSON.stringify(data)});
+  const result=await r.json(); if(!r.ok) throw new Error(JSON.stringify(result));
+  return Array.isArray(result)?result[0]:result;
+}
+async function sbUpdate(table,filters,data){
+  let url=`${SUPABASE_URL}/rest/v1/${table}?`;
+  Object.entries(filters).forEach(([k,v])=>{url+=`${k}=eq.${encodeURIComponent(v)}&`;});
+  await fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`},body:JSON.stringify(data)});
+}
+async function cargarEvidencia(){
+  if(evidenciaCache) return evidenciaCache;
+  try{
+    const url=`${SUPABASE_URL}/rest/v1/${EVIDENCIA_TABLE}?activo=eq.true&limit=200`;
+    const r=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});
+    const data=await r.json();
+    if(Array.isArray(data)&&data.length>0){evidenciaCache=data;return data;}
+  }catch(e){console.warn('Evidencia:',e);}
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════
+// MOTOR IA — GEMINI
+// ══════════════════════════════════════════════════════════
+async function generarRecomendacionesIA(perfil,d,registros,evidencia){
+  if(!GEMINI_API_KEY) return null;
+  const perfil_str=modoInvitado?'Perfil no disponible.':`Edad: ${perfil.edad||'?'}, Género: ${perfil.genero||perfil.sexo||'?'}, MAE: ${perfil.mae_perfil||'?'}, Neuroticismo: ${perfil.cpp_neuroticismo||0}, CSE: ${perfil.cse_total||'?'}, CEA: ${perfil.cea_total||'?'}, Medicación: ${perfil.medicacion||'ninguna'}, Alergias: ${perfil.alergias||'ninguna'}`;
+  const hist_str=(!registros||registros.length===0)?'Sin registros.':registros.slice(0,3).map(r=>`${r.fecha}: T=${r.tristeza} E=${r.estres} F=${r.fatiga} S=${r.sueno} D=${r.digestion}`).join('; ');
+  const ev_str=evidencia?evidencia.slice(0,40).map(e=>`[${e.categoria?.toUpperCase()}] ${e.nombre}: T${e.eva_tristeza_min}-${e.eva_tristeza_max} E${e.eva_estres_min}-${e.eva_estres_max} F${e.eva_fatiga_min}-${e.eva_fatiga_max} S${e.eva_sueno_min}-${e.eva_sueno_max} D${e.eva_digestion_min}-${e.eva_digestion_max}. ${e.dosis}. ${e.contraindicaciones}. ${e.referencia_apa}. DOI:${e.doi}`).join('\n'):'No disponible.';
+  const prompt=`Eres el motor de recomendaciones de Kair (eje intestino-cerebro). Genera 5 recomendaciones breves y claras para una persona sin formación médica.\n\nREGLAS: Solo JSON válido. 5 categorías: habito, alimento, suplemento, fitoterapia, tecnica. Textos simples y comprensibles. Sin emojis. Sin jerga.\n\nHOY: T=${d.tristeza} E=${d.estres} F=${d.fatiga} S=${d.sueno} D=${d.digestion}\nPERFIL: ${perfil_str}\nHISTORIAL: ${hist_str}\nINTERVENCIONES:\n${ev_str}\n\nJSON:\n{"habito":{"titulo":"","texto":"","referencia":"","doi":"","dias":7},"alimento":{"titulo":"","texto":"","referencia":"","doi":"","dias":3},"suplemento":{"titulo":"","texto":"","referencia":"","doi":"","dias":14},"fitoterapia":{"titulo":"","texto":"","referencia":"","doi":"","dias":10},"tecnica":{"titulo":"","texto":"","referencia":"","doi":"","dias":2}}`;
+  try{
+    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+    const data=await res.json();
+    if(!res.ok){console.error('Gemini rec:',data);return null;}
+    let raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    raw=raw.replace(/```json|```/g,'').trim();
+    return JSON.parse(raw);
+  }catch(e){console.error('IA recs:',e);return null;}
+}
+
+// ══════════════════════════════════════════════════════════
+// INSIGHT
+// ══════════════════════════════════════════════════════════
+function calcularEquilibrio(d){return d.tristeza<=2&&d.estres<=3&&d.fatiga<=3&&d.sueno>=7&&d.digestion<=2;}
+
+function generarInsight(registros,dHoy){
+  if(dHoy.tristeza>=8&&dHoy.estres>=8) return{tipo:'crisis',texto:'Los valores de hoy son muy intensos. Eso no significa que algo esté roto, pero sí que mereces apoyo.',extra:t('insight_extra_crisis')};
+  if(!registros||registros.length===0) return{tipo:'primero',texto:t('insight_texto_primero'),extra:null};
+  const ultimo=registros[0];
+  const eqHoy=calcularEquilibrio(dHoy),eqAntes=calcularEquilibrio(ultimo);
+  if(eqHoy&&eqAntes){const n=registros.filter(r=>calcularEquilibrio(r)).length+1;return{tipo:'equilibrio',texto:`Llevas ${n} registro${n>1?'s':''} dentro del rango de equilibrio.`,extra:t('insight_extra_equilibrio')};}
+  if(!eqHoy&&eqAntes) return{tipo:'bajón',texto:'Hoy los valores han salido del rango de equilibrio.',extra:t('insight_extra_recaida')};
+  const diff={tristeza:dHoy.tristeza-ultimo.tristeza,estres:dHoy.estres-ultimo.estres,fatiga:dHoy.fatiga-ultimo.fatiga,sueno:dHoy.sueno-ultimo.sueno};
+  const mejoras=[],emp=[];
+  if(diff.tristeza<=-2) mejoras.push('el ánimo ha mejorado');else if(diff.tristeza>=2) emp.push('el ánimo ha bajado');
+  if(diff.estres<=-2) mejoras.push('el estrés ha bajado');else if(diff.estres>=2) emp.push('el estrés ha subido');
+  if(diff.fatiga<=-2) mejoras.push('la fatiga ha bajado');else if(diff.fatiga>=2) emp.push('la fatiga ha subido');
+  if(diff.sueno>=2) mejoras.push('el sueño ha mejorado');else if(diff.sueno<=-2) emp.push('el sueño ha empeorado');
+  if(mejoras.length>0&&emp.length===0){const tx=mejoras.length===1?`Respecto al último registro, ${mejoras[0]}.`:`Respecto al último registro, ${mejoras.slice(0,-1).join(', ')} y ${mejoras[mejoras.length-1]}.`;return{tipo:'mejora',texto:tx,extra:t('insight_extra_equilibrio')};}
+  if(emp.length>0){const tx=emp.length===1?`Respecto al último registro, ${emp[0]}.`:`Respecto al último registro, ${emp.slice(0,-1).join(', ')} y ${emp[emp.length-1]}.`;return{tipo:'bajón',texto:tx,extra:t('insight_extra_recaida')};}
+  return{tipo:'normal',texto:'Los valores se mantienen estables respecto al último registro.',extra:null};
+}
+
+function renderInsight(ins){
+  const card=document.getElementById('insightCard');
+  const textEl=document.getElementById('insightText');
+  const extraEl=document.getElementById('insightExtra');
+  const tagEl=document.getElementById('insightTag');
+  card.style.display='block';
+  textEl.textContent=ins.texto;
+  const tagMap={equilibrio:t('insight_equilibrio'),mejora:t('insight_mejora'),bajón:'',crisis:'',primero:t('insight_primero'),normal:''};
+  tagEl.textContent=tagMap[ins.tipo]||'';
+  if(ins.tipo==='equilibrio'){tagEl.style.background='rgba(42,198,168,0.1)';tagEl.style.color='#065f46';}
+  else{tagEl.style.background='';tagEl.style.color='';}
+  if(ins.extra){
+    const clsMap={equilibrio:'equilibrio',mejora:'equilibrio',bajón:'bajón',crisis:'crisis',normal:'',primero:''};
+    const cls=clsMap[ins.tipo]||'';
+    extraEl.innerHTML=cls?`<div class="insight-callout ${cls}">${ins.extra}</div>`:`<div style="font-size:0.76rem;color:var(--text-muted);margin-top:8px;line-height:1.5;">${ins.extra}</div>`;
+  }else extraEl.innerHTML='';
+}
+
+// ══════════════════════════════════════════════════════════
+// MOTOR LOCAL FALLBACK
+// ══════════════════════════════════════════════════════════
+function diasConMismaRec(registros,campo){if(!registros||registros.length===0)return 0;const primera=registros[0][campo];let count=0;for(const r of registros){if(r[campo]===primera)count++;else break;}return count;}
+function recomendarHabito(p,d){const{estres,fatiga,tristeza,sueno}=d;if(calcularEquilibrio(d))return{titulo:'Mantén tu rutina de movimiento',texto:'Estás en una buena racha. El movimiento regular es lo que sostiene este equilibrio.',ref:'Olafsdottir, G. et al. (2020). Environment and Behavior, 52(9).',doi:'10.1177/0013916518800798',dias:7};if(estres>=7)return{titulo:'Paseo de 20 minutos sin pantallas',texto:'Sal a caminar sin móvil a ser posible en naturaleza. Reduce el cortisol de forma medible.',ref:'Olafsdottir, G. et al. (2020). Environment and Behavior.',doi:'10.1177/0013916518800798',dias:7};if(fatiga>=7||sueno<=3)return{titulo:'Luz natural en los primeros 30 minutos del día',texto:'Sal fuera o acércate a una ventana al despertarte. Ayuda a regular el ciclo de sueño.',ref:'Bosman, E.S. et al. (2019). Frontiers in Microbiology.',doi:'10.3389/fmicb.2019.02410',dias:7};if(tristeza>=6)return{titulo:'Escritura de cinco minutos antes de dormir',texto:'Escribe tres cosas concretas que hayan salido bien hoy, por pequeñas que sean.',ref:'Pennebaker, J.W. (2011). Oxford Handbook of Health Psychology.',doi:'10.1093/oxfordhb/9780195342819.013.0018',dias:7};return{titulo:'30 minutos de ejercicio moderado',texto:'Caminar, nadar o bici a ritmo que permita mantener una conversación.',ref:'Liu, Y. et al. (2024). Psychological Radiology.',doi:'10.1093/psyrad/kkae007',dias:7};}
+function recomendarAlimento(p,d){const{estres,digestion,fatiga,tristeza}=d;if(calcularEquilibrio(d))return{titulo:'Mantén el patrón mediterráneo',texto:'Verduras variadas, legumbres, aceite de oliva y pescado azul dos veces por semana.',ref:'Jacka, F.N. et al. (2017). BMC Medicine.',doi:'10.1186/s12916-017-0791-y',dias:3};if(digestion>=6)return{titulo:'Verduras cocidas y caldos hoy',texto:'Cuando el intestino está irritado, prioriza alimentos al vapor o en caldo fáciles de digerir.',ref:'Staudacher, H.M. et al. (2022). American Journal of Gastroenterology.',doi:'10.14309/ajg.0000000000001545',dias:3};if(tristeza>=5||fatiga>=6)return{titulo:'Pescado azul esta semana',texto:'Sardinas, caballa o salmón al menos dos veces. Los omega-3 ayudan al cerebro a regular el ánimo.',ref:'Firth, J. et al. (2025). Psychological Medicine.',doi:'10.1017/S0033291725000996',dias:3};if(estres>=6)return{titulo:'Reduce ultraprocesados hoy',texto:'El estrés ya inflama. Los ultraprocesados lo empeoran alterando la microbiota intestinal.',ref:'SMILES trial (2023).',doi:'10.1186/s12916-017-0791-y',dias:3};return{titulo:'Frutas con polifenoles en el desayuno',texto:'Arándanos, frutos rojos o kiwi. Sus compuestos actúan sobre la microbiota mejorando el ánimo.',ref:'Ceppa, F. et al. (2020). Nutrients.',doi:'10.3390/nu15010145',dias:3};}
+function recomendarSuplemento(p,d,registros){const diasActual=diasConMismaRec(registros,'rec_suplemento');const{estres,fatiga,tristeza,digestion,sueno}=d;if(diasActual>0&&diasActual<14&&registros.length>0){const refs={'Omega-3 (EPA + DHA), con el desayuno':{ref:'Firth, J. et al. (2025). Psychological Medicine.',doi:'10.1017/S0033291725000996'},'Vitamina D3 con vitamina K2, por la mañana':{ref:'Ghaemi, S.N. et al. (2025). Frontiers in Psychiatry.',doi:'10.3389/fpsyt.2025.1622796'},'Probiótico con Lactobacillus y Bifidobacterium, con las comidas':{ref:'Tian, P. et al. (2024). Psychological Medicine.',doi:'10.1017/S0033291716002774'},'Melatonina (3 mg), 30 minutos antes de dormir':{ref:'Zhu, M. et al. (2022).',doi:'10.1136/gut.2004.062745'},'Magnesio (forma glicinato u orotato) por la noche':{ref:'Winther, G. et al. (2015). Acta Neuropsychiatrica.',doi:'10.1017/neu.2014.34'}};const found=refs[registros[0].rec_suplemento]||{ref:'',doi:''};return{titulo:registros[0].rec_suplemento,texto:`Día ${diasActual} de 14. Los suplementos necesitan ciclo completo. Mantén la toma diaria.`,ref:found.ref,doi:found.doi,dias:14,mantener:true};}
+if(calcularEquilibrio(d))return{titulo:'Magnesio (forma glicinato u orotato) por la noche',texto:'Cofactor de más de 300 procesos. La forma glicinato no molesta el estómago.',ref:'Winther, G. et al. (2015). Acta Neuropsychiatrica.',doi:'10.1017/neu.2014.34',dias:14};if(tristeza>=5||estres>=6)return{titulo:'Omega-3 (EPA + DHA), con el desayuno',texto:'Mínimo 1000 mg de EPA al día. Ayuda al cerebro a fabricar los mensajeros del ánimo.',ref:'Firth, J. et al. (2025). Psychological Medicine.',doi:'10.1017/S0033291725000996',dias:28};if(fatiga>=6)return{titulo:'Vitamina D3 con vitamina K2, por la mañana',texto:'La deficiencia de vitamina D se asocia al cansancio y al ánimo bajo. La K2 dirige la D al tejido correcto.',ref:'Ghaemi, S.N. et al. (2025). Frontiers in Psychiatry.',doi:'10.3389/fpsyt.2025.1622796',dias:28};if(digestion>=5)return{titulo:'Probiótico con Lactobacillus y Bifidobacterium, con las comidas',texto:'El 90% de la serotonina se produce en el intestino. El probiótico ayuda a restaurar el equilibrio.',ref:'Tian, P. et al. (2024). Psychological Medicine.',doi:'10.1017/S0033291716002774',dias:28};if(sueno<=4)return{titulo:'Melatonina (3 mg), 30 minutos antes de dormir',texto:'Hormona que regula el ciclo sueño-vigilia. El intestino también la produce.',ref:'Zhu, M. et al. (2022).',doi:'10.1136/gut.2004.062745',dias:14};return{titulo:'Vitamina D3 con vitamina K2, por la mañana',texto:'Esencial para el sistema inmune intestinal y la regulación del ánimo.',ref:'Ghaemi, S.N. et al. (2025). Frontiers in Psychiatry.',doi:'10.3389/fpsyt.2025.1622796',dias:28};}
+function recomendarFitoterapia(p,d,registros){const diasActual=diasConMismaRec(registros,'rec_fitoterapia');const{estres,tristeza,digestion,fatiga,sueno}=d;if(diasActual>0&&diasActual<10&&registros.length>0){const refs={'Pasiflora o valeriana, en infusión 30 minutos antes de dormir':{ref:'Nunes, A. & Sousa, M. (2011). Phytotherapy Research.',doi:'10.1002/ptr.3395'},'Azafrán estandarizado, con el desayuno':{ref:'Marx, W. et al. (2019). Journal of Integrative Medicine.',doi:'10.1016/j.joim.2019.06.006'},'STW-5 (Iberogast), 20 gotas tres veces al día con las comidas':{ref:'Melzer, J. et al. (2004). Alimentary Pharmacology.',doi:'10.1111/j.1365-2036.2004.01958.x'},'Ashwagandha, por la mañana':{ref:'Chandrasekhar, K. et al. (2012). Indian Journal of Psychological Medicine.',doi:'10.4103/0253-7176.106022'},'Melisa o manzanilla, en infusión tras las comidas':{ref:'Cases, J. et al. (2011). Mediterranean Journal of Nutrition.',doi:'10.1007/s12349-010-0045-4'}};const found=refs[registros[0].rec_fitoterapia]||{ref:'',doi:''};return{titulo:registros[0].rec_fitoterapia,texto:`Día ${diasActual} de 10. Las plantas actúan de forma acumulativa. Sigue el ciclo.`,ref:found.ref,doi:found.doi,dias:10,mantener:true};}
+if(sueno<=4||(estres>=6&&(p.cse_total||0)>=18))return{titulo:'Pasiflora o valeriana, en infusión 30 minutos antes de dormir',texto:'Actúan sobre los receptores GABA del cerebro facilitando la calma y el sueño sin crear dependencia.',ref:'Nunes, A. & Sousa, M. (2011). Phytotherapy Research.',doi:'10.1002/ptr.3395',dias:10};if(tristeza>=5||(fatiga>=5&&estres>=4))return{titulo:'Azafrán estandarizado, con el desayuno',texto:'Efecto suave pero consistente sobre el ánimo, comparable a algunos fármacos en casos leves.',ref:'Marx, W. et al. (2019). Journal of Integrative Medicine.',doi:'10.1016/j.joim.2019.06.006',dias:10};if(digestion>=5)return{titulo:'STW-5 (Iberogast), 20 gotas tres veces al día con las comidas',texto:'Combinación de nueve plantas con mayor respaldo para la digestión funcional.',ref:'Melzer, J. et al. (2004). Alimentary Pharmacology.',doi:'10.1111/j.1365-2036.2004.01958.x',dias:10};if(estres>=5)return{titulo:'Ashwagandha, por la mañana',texto:'Adaptógeno que reduce el cortisol de forma gradual sin crear dependencia.',ref:'Chandrasekhar, K. et al. (2012). Indian Journal of Psychological Medicine.',doi:'10.4103/0253-7176.106022',dias:10};return{titulo:'Melisa o manzanilla, en infusión tras las comidas',texto:'La melisa actúa sobre el sistema nervioso del intestino con efecto calmante suave.',ref:'Cases, J. et al. (2011). Mediterranean Journal of Nutrition.',doi:'10.1007/s12349-010-0045-4',dias:10};}
+function recomendarTecnica(p,d){const{estres,tristeza,fatiga,sueno}=d;const mae=p.mae_perfil||'calma';if(calcularEquilibrio(d))return{titulo:'Coherencia cardiaca de mantenimiento',texto:'5 segundos inspira, 5 espira, durante 5 minutos. Sincroniza corazón y cerebro a través del nervio vago.',ref:'Laborde, S. et al. (2022). Neuroscience & Biobehavioral Reviews, 138.',doi:'10.1016/j.neubiorev.2022.104711',dias:2};if(estres>=8)return{titulo:'Respiración 4-7-8',texto:'Inspira 4s, aguanta 7s, espira 8s. Cuatro ciclos. Efecto calmante en menos de 2 minutos.',ref:'Laborde, S. et al. (2022). Neuroscience & Biobehavioral Reviews.',doi:'10.1016/j.neubiorev.2022.104711',dias:2};if(tristeza>=6||(fatiga>=7&&sueno<=4))return{titulo:'Exploración corporal de cinco minutos',texto:'Cierra los ojos y recorre tu cuerpo de pies a cabeza, solo observando sin juzgar.',ref:'Gotink, R.A. et al. (2016). PLOS ONE, 11(4).',doi:'10.1371/journal.pone.0153220',dias:2};if(mae==='naturaleza'||mae==='exploracion')return{titulo:'20 minutos en naturaleza con los cinco sentidos',texto:'Sin móvil. Fíjate en lo que ves, escuchas, hueles y sientes. Reduce el cortisol de forma medible.',ref:'Antonelli, M. et al. (2019). International Journal of Biometeorology, 63.',doi:'10.1007/s00484-019-01717-x',dias:2};return{titulo:'Coherencia cardiaca: cinco minutos',texto:'5 segundos inspira, 5 espira. Puedes hacerlo sentado en cualquier lugar.',ref:'Laborde, S. et al. (2022). Neuroscience & Biobehavioral Reviews.',doi:'10.1016/j.neubiorev.2022.104711',dias:2};}
+function generarRecomendacionesFallback(perfil,d,registros){return{habito:recomendarHabito(perfil,d),alimento:recomendarAlimento(perfil,d),suplemento:recomendarSuplemento(perfil,d,registros),fitoterapia:recomendarFitoterapia(perfil,d,registros),tecnica:recomendarTecnica(perfil,d)};}
+
+function renderRecomendaciones(recs,esIA){
+  const cats=[{key:'habito',label:'Hábito'},{key:'alimento',label:'Alimentación'},{key:'suplemento',label:'Suplemento'},{key:'fitoterapia',label:'Fitoterapia'},{key:'tecnica',label:'Técnica'}];
+  let html='';
+  cats.forEach(({key,label})=>{
+    const r=recs[key]; if(!r) return;
+    const diasLabel=r.mantener?`Día ${diasConMismaRec(ultimosRegistros,'rec_'+key)+1} de ${r.dias}`:`${r.dias} días`;
+    const refHtml=(r.ref||r.referencia)?`<div class="rec-reference"><details><summary>Ver referencia científica</summary><div class="rec-ref-body">${r.ref||r.referencia}${r.doi?' <a href="https://doi.org/'+r.doi+'" target="_blank">'+r.doi+'</a>':''}</div></details></div>`:'';
+    html+=`<div class="rec-item"><div class="rec-meta"><span class="rec-cat">${label}</span><span class="rec-days-tag">${diasLabel}</span></div><div class="rec-title">${r.titulo||''}</div><div class="rec-body">${r.texto||''}</div>${refHtml}</div>`;
+  });
+  document.getElementById('recContainer').innerHTML=html||`<p class="rec-empty">No se han podido generar recomendaciones.</p>`;
+  const tag=document.getElementById('recAiTag');
+  if(tag) tag.style.display=esIA?'inline-block':'none';
+}
+function mostrarCargandoRecs(){document.getElementById('recContainer').innerHTML=`<div class="rec-loading"><div class="rec-loading-dot"></div><div class="rec-loading-dot"></div><div class="rec-loading-dot"></div><span>${t('loading_recs')}</span></div>`;}
+
+// ══════════════════════════════════════════════════════════
+// LOGIN / LOGOUT
+// ══════════════════════════════════════════════════════════
+function acceptLegal(){
+  document.getElementById('legalModal').style.display='none';
+  // Session already restored in DOMContentLoaded — nothing extra needed here
+}
+async function loginFromBar(){const id=document.getElementById('loginInput').value.trim();if(!id)return;await tryLogin(id);}
+async function tryLogin(id){
+  try{
+    const perfil=await sbGet('perfiles',{uid:id});
+    if(!perfil){showLoginError(t('err_id_not_found'));return;}
+    if(perfil.riesgo){const el=document.getElementById('loginError');el.innerHTML=`<div class="risk-box">${t('legal_body2')}</div>`;el.style.display='block';return;}
+    currentId=id;userProfile=perfil;modoInvitado=false;
+    localStorage.setItem('kair_id',id);
+    // Persist profile to sessionStorage so push SW can reference user even after app close
+    try{ sessionStorage.setItem('kair_profile',JSON.stringify({uid:id,mae_perfil:perfil.mae_perfil,cse_total:perfil.cse_total})); }catch(_){}
+    document.getElementById('loginBar').style.display='none';
+    document.getElementById('loginError').style.display='none';
+    document.getElementById('userBar').style.display='flex';
+    document.getElementById('userBarId').textContent=`ID · ${id}`;
+    document.getElementById('insightCard').style.display='block';
+    const gaiaWelcome=document.getElementById('gaiaWelcome');
+    if(gaiaWelcome) gaiaWelcome.textContent=currentLang==='en'
+      ? 'Session active. I\'m GAIA. I can explain your personalised recommendations, answer questions about supplements, plants or habits. How can I help?'
+      : currentLang==='va'
+      ? 'Sessió activa. Sóc GAIA. Puc explicar-te les teues recomanacions personalitzades, respondre dubtes sobre suplements, plantes o hàbits. Com puc ajudar-te?'
+      : 'Sesión activa. Soy GAIA. Puedo explicarte tus recomendaciones personalizadas, responder dudas sobre suplementos, plantas o hábitos. ¿En qué puedo ayudarte?';
+    if(!perfil.onboarding_done){onboardingStep=0;updateOnboarding();document.getElementById('onboardingOverlay').style.display='flex';}
+    ultimosRegistros=await sbGetMany('registros',{uid:currentId},'fecha.desc',30);
+    renderStreakWidget(ultimosRegistros);
+    if(ultimosRegistros&&ultimosRegistros.length>0) document.getElementById('insightText').textContent=`${currentLang==='en'?'Last entry':'Último registro'}: ${ultimosRegistros[0].fecha}`;
+    else document.getElementById('insightText').textContent=currentLang==='en'?'No entries yet. Log your first entry today.':currentLang==='va'?'Sense registres encara. Fes el teu primer registre avui.':'Sin registros todavía. Haz tu primer registro hoy.';
+    cargarEvidencia();
+    actualizarGaiaLimitBar();
+  }catch(err){console.error(err);showLoginError(t('err_connection'));}
+}
+function showLoginError(msg){const el=document.getElementById('loginError');el.textContent=msg;el.style.display='block';}
+function logout(){
+  currentId=null;userProfile=null;modoInvitado=true;ultimosRegistros=[];
+  localStorage.removeItem('kair_id');
+  document.getElementById('userBar').style.display='none';
+  document.getElementById('loginBar').style.display='flex';
+  document.getElementById('insightCard').style.display='none';
+  document.getElementById('streakWidget').style.display='none';
+  document.getElementById('recContainer').innerHTML=`<p class="rec-empty">${t('rec_empty')}</p>`;
+  const tag=document.getElementById('recAiTag');if(tag) tag.style.display='none';
+}
+
+// ══════════════════════════════════════════════════════════
+// ONBOARDING — mejorado
+// ══════════════════════════════════════════════════════════
+const onboardingSteps=[
+  {title:'Bienvenido/a a Kair',text:'Tu perfil está listo. Cada registro diario hace que tus recomendaciones sean más precisas.'},
+  {title:'Cinco preguntas al día',text:'Escalas 0–10 para tristeza, estrés, fatiga, calidad del sueño y digestión. Menos de un minuto.'},
+  {title:'Recomendaciones con evidencia',text:'Hábitos, alimentos, suplementos, fitoterapia y técnicas emocionales adaptadas a tu perfil y respaldadas por investigación científica.'}
+];
+let onboardingStep=0;
+
+function nextOnboardingStep(){
+  onboardingStep++;
+  if(onboardingStep>=onboardingSteps.length){
+    document.getElementById('onboardingOverlay').style.display='none';
+    if(currentId) sbUpdate('perfiles',{uid:currentId},{onboarding_done:true}).catch(()=>{});
+  }else updateOnboarding();
+}
+function updateOnboarding(){
+  const s=onboardingSteps[onboardingStep];
+  document.getElementById('onbTitle').textContent=s.title;
+  document.getElementById('onbText').textContent=s.text;
+  document.getElementById('progressInner').style.width=((onboardingStep+1)/onboardingSteps.length*100)+'%';
+  document.getElementById('onbStepLabel').textContent=t('onb_step',{n:onboardingStep+1,total:onboardingSteps.length});
+  // Botón: último paso = Empezar
+  document.getElementById('onbBtn').textContent=onboardingStep===onboardingSteps.length-1?t('onb_btn_finish'):t('onb_btn_continue');
+  // Dots
+  const dotsEl=document.getElementById('onbDots');
+  dotsEl.innerHTML='';
+  onboardingSteps.forEach((_,i)=>{
+    const dot=document.createElement('div');
+    dot.className='onb-dot'+(i===onboardingStep?' active':'');
+    dotsEl.appendChild(dot);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// GUARDAR REGISTRO
+// ══════════════════════════════════════════════════════════
+async function saveToday(){
+  const d={tristeza:parseInt(document.getElementById('slide-tristeza').value),estres:parseInt(document.getElementById('slide-estres').value),fatiga:parseInt(document.getElementById('slide-fatiga').value),sueno:parseInt(document.getElementById('slide-sueno').value),digestion:parseInt(document.getElementById('slide-digestion').value)};
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true;btn.textContent=t('saving');
+  mostrarCargandoRecs();
+  const perfil=modoInvitado?PERFIL_MEDIO:userProfile;
+  const registros=modoInvitado?[]:ultimosRegistros;
+  let recs=null,esIA=false;
+  try{
+    if(!modoInvitado){
+      const evidencia=await cargarEvidencia();
+      const recsIA=await generarRecomendacionesIA(perfil,d,registros,evidencia);
+      if(recsIA&&recsIA.habito&&recsIA.alimento&&recsIA.suplemento&&recsIA.fitoterapia&&recsIA.tecnica){recs=recsIA;esIA=true;}
+    }
+  }catch(e){console.warn('IA no disponible:',e);}
+  if(!recs) recs=generarRecomendacionesFallback(perfil,d,registros);
+  const ins=generarInsight(registros,d);
+  renderInsight(ins);
+  try{
+    if(!modoInvitado&&currentId){
+      await sbInsert('registros',{uid:currentId,fecha:new Date().toISOString().split('T')[0],tristeza:d.tristeza,estres:d.estres,fatiga:d.fatiga,sueno:d.sueno,digestion:d.digestion,insight:ins.texto,rec_habito:recs.habito?.titulo||'',rec_alimento:recs.alimento?.titulo||'',rec_suplemento:recs.suplemento?.titulo||'',rec_fitoterapia:recs.fitoterapia?.titulo||'',rec_tecnica:recs.tecnica?.titulo||''});
+      ultimosRegistros=await sbGetMany('registros',{uid:currentId},'fecha.desc',30);
+      renderStreakWidget(ultimosRegistros);
+    }
+    renderRecomendaciones(recs,esIA);
+    btn.disabled=false;btn.textContent=t('saved_ok');
+    setTimeout(()=>{btn.textContent=t('btn_registrar');},3000);
+  }catch(err){
+    console.error(err);btn.disabled=false;btn.textContent=t('btn_registrar');
+    renderRecomendaciones(recs,esIA);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// GAIA — LÍMITE DE TOKENS POR DÍA
+// Límite: 20 consultas/día por usuario (localStorage por fecha)
+// ══════════════════════════════════════════════════════════
+const GAIA_DAILY_LIMIT=20;
+
+function getGaiaUsageKey(){
+  const hoy=new Date().toISOString().split('T')[0];
+  return `kair_gaia_${currentId||'guest'}_${hoy}`;
+}
+function getGaiaUsage(){
+  const k=getGaiaUsageKey();
+  return parseInt(localStorage.getItem(k)||'0');
+}
+function incrementGaiaUsage(){
+  const k=getGaiaUsageKey();
+  const n=getGaiaUsage()+1;
+  localStorage.setItem(k,String(n));
+  return n;
+}
+function gaiaUsageLeft(){return Math.max(0,GAIA_DAILY_LIMIT-getGaiaUsage());}
+
+function actualizarGaiaLimitBar(){
+  const bar=document.getElementById('gaiaLimitBar');
+  const fill=document.getElementById('gaiaLimitFill');
+  const txt=document.getElementById('gaiaLimitText');
+  if(!currentId||modoInvitado){bar.style.display='none';return;}
+  const left=gaiaUsageLeft();
+  const pct=(left/GAIA_DAILY_LIMIT)*100;
+  bar.style.display='flex';
+  fill.style.width=pct+'%';
+  fill.className='gaia-limit-fill'+(pct<=25?' danger':pct<=50?' warning':'');
+  if(left===0) txt.textContent=t('gaia_limit_out');
+  else if(left<=5) txt.textContent=t('gaia_limit_low',{n:left});
+  else txt.textContent=t('gaia_limit_ok',{n:left});
+}
+
+// ══════════════════════════════════════════════════════════
+// GAIA — DETECCIÓN DE RIESGO
+// ══════════════════════════════════════════════════════════
+const GAIA_RIESGO_KW=['hacerme daño','hacerme mal','suicidarme','suicidio','matarme','no quiero vivir','quitarme la vida','acabar con todo','desaparecer','no quiero seguir','no puedo más','pensando en morir','pensamientos de muerte','lesionarme','autolesión','autolesionarme','hurt myself','kill myself','end it all','self-harm','suïcidi','fer-me mal','no vull viure'];
+
+function detectarRiesgoGaia(msg){
+  const m=msg.toLowerCase();
+  return GAIA_RIESGO_KW.some(k=>m.includes(k));
+}
+
+// ══════════════════════════════════════════════════════════
+// GAIA — CORE
+// ══════════════════════════════════════════════════════════
+const GAIA_DOMINIO=['kair','gaia','recomendación','recomendaciones','suplemento','fitoterapia','hábito','planta','omega','magnesio','vitamina','probiótico','ashwagandha','azafrán','valeriana','pasiflora','respiración','sueño','digestión','intestino','estrés','tristeza','fatiga','eva','registro','equilibrio','bienestar','microbiota','eje intestino','cortisol','melatonina','melisa','iberogast','meditación','mindfulness','ejercicio','mediterránea','nervio vago','tcc','act','coherencia','serotonina','dopamina','inflamación','ansiedad','depresión','omega-3','dha','epa','adaptógeno','serotonin','gut','brain','wellness','supplement','anxiety','stress','sleep','digestion'];
+
+function esConsultaFueraDeDominio(msg){
+  const m=msg.toLowerCase();
+  if(GAIA_DOMINIO.some(k=>m.includes(k))) return false;
+  return['política','noticias','fútbol','matemáticas','programar','código','historia','geografía','traducir','chiste','clima','dinero','inversión','criptomoneda','ley','abogado','diagnóstico'].some(t=>m.includes(t));
+}
+
+const GAIA_KB={
+  'magnesio':'El magnesio ayuda al cuerpo a fabricar serotonina y a manejar el estrés. La forma glicinato es la que mejor tolera el estómago. Se toma por la noche, 30-60 minutos antes de dormir. Dosis habitual: 200-400 mg.',
+  'omega':'Los omega-3 son grasas que el cerebro necesita para regular el ánimo. El EPA actúa sobre el estado de ánimo y el DHA sobre la estructura del cerebro. Mínimo 1000 mg de EPA al día en cápsulas. Los efectos se notan en 4-8 semanas.',
+  'omega-3':'Los omega-3 son grasas esenciales para el cerebro. El EPA mejora el ánimo, el DHA la estructura neuronal. Mínimo 1000 mg EPA diario. Cápsulas entéricas para mejor tolerancia.',
+  'ashwagandha':'La ashwagandha es una planta que ayuda al cuerpo a manejar mejor el estrés crónico. Reduce el cortisol (la hormona del estrés) de forma gradual sin crear dependencia. Los efectos se notan a las 4-8 semanas. No combinar con medicación tiroidea.',
+  'probiótico':'Los probióticos son bacterias beneficiosas para el intestino. El 90% de la serotonina del cuerpo se produce en el intestino, por eso cuidar la microbiota intestinal afecta al ánimo. Las cepas con más estudios son L. helveticus y B. longum. Necesitan al menos 4 semanas.',
+  'microbiota':'La microbiota es el conjunto de bacterias que viven en el intestino. Se comunica directamente con el cerebro a través del nervio vago. Un desequilibrio se asocia a ansiedad, depresión y fatiga. Los antibióticos, el estrés y los ultraprocesados la dañan.',
+  'nervio vago':'El nervio vago conecta el intestino con el cerebro. Es el principal canal de comunicación entre ambos. Estimularlo (con respiración lenta, cantar o agua fría en la cara) reduce la inflamación y mejora el ánimo.',
+  'respiración':'Respirar despacio con la espiración más larga que la inspiración activa el nervio vago y calma el sistema nervioso. La técnica 4-7-8 (inspira 4s, aguanta 7s, espira 8s) calma en menos de 2 minutos. La coherencia cardiaca (5s-5s, 5 minutos) es la más estudiada.',
+  'coherencia':'La coherencia cardiaca es respirar a 6 respiraciones por minuto: 5 segundos inspira, 5 segundos espira, durante 5 minutos. Mejora la variabilidad cardiaca, reduce el cortisol y activa el nervio vago. Con práctica regular produce cambios reales en la respuesta al estrés.',
+  'sueño':'El sueño en Kair se puntúa de 0 (muy malo) a 10 (excelente). Lo que más ayuda a mejorarlo: magnesio glicinato por la noche, pasiflora o valeriana en infusión, luz natural al despertar y evitar pantallas 60 minutos antes de dormir.',
+  'equilibrio':'En Kair el equilibrio es: tristeza ≤2, estrés ≤3, fatiga ≤3, sueño ≥7 y digestión ≤2. Cuando llegas a esos valores las recomendaciones cambian a modo mantenimiento.',
+  'valeriana':'La valeriana actúa sobre el GABA del cerebro (el freno natural del sistema nervioso) facilitando la calma y el sueño. No crea dependencia. Sus efectos se notan a partir del 7º día. Se toma 30-60 min antes de dormir.',
+  'pasiflora':'La pasiflora actúa también sobre el GABA. Es especialmente útil para los pensamientos que no paran antes de dormir. Se toma 30-60 minutos antes de acostarse.',
+  'azafrán':'El extracto de azafrán estandarizado tiene efecto sobre el ánimo comparable a algunos antidepresivos leves, sin sus efectos secundarios. Dosis: 28-30 mg al día en cápsula. Efectos visibles en 6-8 semanas.',
+  'vitamina d':'La vitamina D actúa como hormona en el cerebro. Su falta se asocia al ánimo bajo y al cansancio. La vitamina K2 dirige la D a los tejidos correctos. Dosis habitual: 2000-4000 UI de D3 con K2.',
+  'iberogast':'El Iberogast (STW-5) es una combinación de 9 plantas con el mayor respaldo científico para la digestión funcional. Regula la motilidad intestinal y reduce la inflamación. 20 gotas en agua, 3 veces al día con las comidas.',
+  'melisa':'La melisa tiene un efecto calmante suave sobre el sistema nervioso del intestino. También reduce la ansiedad leve. Se toma en infusión tras las comidas.',
+  'tcc':'La TCC (Terapia Cognitivo-Conductual) enseña a identificar pensamientos negativos automáticos y cambiarlos. Es el enfoque psicológico con más evidencia para ansiedad y depresión. En Kair usamos técnicas adaptadas como la escritura de diario.',
+  'act':'La ACT (Terapia de Aceptación y Compromiso) enseña a aceptar las emociones difíciles en lugar de luchar contra ellas. A veces la lucha contra el malestar lo amplifica. La ACT propone observarlo sin juzgarlo y actuar según los propios valores.',
+  'mindfulness':'El mindfulness consiste en prestar atención al momento presente sin juzgarlo. La práctica regular (10-15 min al día) reduce la actividad de la amígdala (el centro del miedo en el cerebro). El body scan es una de las técnicas más efectivas para esto.',
+  'melatonina':'La melatonina regula el ciclo sueño-vigilia. La produce la glándula pineal y también el intestino. Se toma 0.5-3 mg de liberación inmediata 30-60 minutos antes de dormir. Dosis pequeñas (0.5 mg) son igual de eficaces y producen menos tolerancia.',
+  'inflamación':'La inflamación crónica de bajo grado contribuye a la ansiedad, depresión y fatiga. El intestino es su principal fuente cuando su barrera está dañada. Los omega-3, probióticos y la dieta mediterránea son los mayores antiinflamatorios con evidencia.',
+  'eje intestino':'El eje intestino-cerebro es la red que une el intestino con el cerebro. El intestino produce el 90% de la serotonina del cuerpo y comunica directamente con las áreas emocionales del cerebro a través del nervio vago.',
+  'serotonina':'El 90% de la serotonina del cuerpo se produce en el intestino, no en el cerebro. Por eso cuidar la microbiota intestinal tiene un efecto real sobre el ánimo. Los probióticos de tipo Lactobacillus y Bifidobacterium modulan esta producción.',
+  'default':'Puedo explicarte cómo funcionan las recomendaciones del día, los suplementos y plantas, las técnicas emocionales, o el eje intestino-cerebro. ¿Qué necesitas saber?'
+};
+
+function gaiaLocalResponse(msg){
+  const m=msg.toLowerCase();
+  for(const[key,response]of Object.entries(GAIA_KB)){
+    if(key!=='default'&&m.includes(key)) return response;
+  }
+  return GAIA_KB.default;
+}
+
+async function getGaiaAI(msg){
+  if(!GEMINI_API_KEY) return null;
+  const perfilCtx=modoInvitado?'Sin perfil de usuario.':
+    `Perfil: MAE=${userProfile?.mae_perfil||'?'}, CSE=${userProfile?.cse_total||'?'}, Medicación=${userProfile?.medicacion||'ninguna'}, Alergias=${userProfile?.alergias||'ninguna'}`;
+  const registroCtx=(!ultimosRegistros||ultimosRegistros.length===0)?'Sin registros previos.':
+    `Último registro (${ultimosRegistros[0].fecha}): tristeza=${ultimosRegistros[0].tristeza}, estrés=${ultimosRegistros[0].estres}, fatiga=${ultimosRegistros[0].fatiga}, sueño=${ultimosRegistros[0].sueno}, digestión=${ultimosRegistros[0].digestion}. Recomendaciones activas: hábito="${ultimosRegistros[0].rec_habito||'—'}", suplemento="${ultimosRegistros[0].rec_suplemento||'—'}", fitoterapia="${ultimosRegistros[0].rec_fitoterapia||'—'}".`;
+  const systemPrompt=`Eres GAIA, asistente de bienestar de la aplicación Kair. Kair se centra en el eje intestino-cerebro.
+
+NORMAS ESTRICTAS:
+1. Responde SOLO sobre: recomendaciones de Kair, suplementos, plantas medicinales, hábitos de bienestar, técnicas emocionales (respiración, mindfulness, TCC, ACT), eje intestino-cerebro, microbiota, nervio vago, sueño, digestión, estrés, ánimo.
+2. Usa lenguaje SENCILLO. Como si hablaras con alguien que no sabe nada de medicina. Sin tecnicismos innecesarios.
+3. Respuestas COMPLETAS pero CORTAS: 2-4 frases que terminen con sentido. NUNCA cortes una frase a medias.
+4. Sin emojis. Tono cercano y tranquilo.
+5. No diagnostiques ni prescribas tratamientos médicos. Si algo requiere profesional, dilo en una frase.
+6. Si te preguntan algo fuera de tu dominio (política, tecnología, cocina general, etc.) responde exactamente: "Eso está fuera de lo que puedo ayudarte en Kair."
+7. Si el usuario pregunta en valenciano o inglés, responde en el mismo idioma.
+
+${perfilCtx}
+${registroCtx}`;
+  try{
+    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-goog-api-key':GEMINI_API_KEY},
+      body:JSON.stringify({
+        contents:[{parts:[{text:`${systemPrompt}\n\nUsuario: ${msg}`}]}],
+        generationConfig:{maxOutputTokens:500,temperature:0.65,stopSequences:[]}
+      })
+    });
+    const data=await res.json();
+    if(!res.ok){console.error('Gemini GAIA:',data);return null;}
+    const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||null;
+    if(!raw) return null;
+    // Ensure response ends cleanly — trim trailing incomplete sentence
+    const clean=raw.trim();
+    const lastPunct=Math.max(clean.lastIndexOf('.'),clean.lastIndexOf('?'),clean.lastIndexOf('!'));
+    return lastPunct>clean.length*0.5?clean.slice(0,lastPunct+1):clean;
+  }catch(e){console.error(e);return null;}
+}
+
+function toggleGaia(){
+  const p=document.getElementById('gaiaPanel');
+  const isOpen=p.style.display==='flex';
+  p.style.display=isOpen?'none':'flex';
+  if(!isOpen) actualizarGaiaLimitBar();
+}
+function toggleSocial(){document.getElementById('socialPanel').classList.toggle('open');}
+document.addEventListener('click',function(e){
+  const panel=document.getElementById('socialPanel');
+  if(panel&&panel.classList.contains('open')){
+    if(!panel.contains(e.target)&&!e.target.closest('.social-btn')) panel.classList.remove('open');
+  }
+});
+
+async function sendGaia(){
+  const input=document.getElementById('gaiaInput');
+  const msg=input.value.trim();
+  if(!msg) return;
+  input.value='';
+
+  // Límite de tokens/consultas por día
+  if(!modoInvitado&&gaiaUsageLeft()<=0){
+    addGaiaMsg(msg,'user');
+    addGaiaMsg(t('gaia_limit_out'),'bot');
+    return;
+  }
+
+  // Detección de riesgo — prioridad máxima
+  if(detectarRiesgoGaia(msg)){
+    addGaiaMsg(msg,'user');
+    addGaiaMsg(t('gaia_crisis_msg'),'bot','crisis-msg');
+    return;
+  }
+
+  if(esConsultaFueraDeDominio(msg)){
+    addGaiaMsg(msg,'user');
+    addGaiaMsg(t('gaia_out_of_domain'),'bot');
+    return;
+  }
+
+  addGaiaMsg(msg,'user');
+  addGaiaMsg('...','bot','typing');
+
+  let res=null;
+  if(!modoInvitado&&GEMINI_API_KEY){
+    incrementGaiaUsage();
+    res=await getGaiaAI(msg);
+    actualizarGaiaLimitBar();
+  }
+  if(!res) res=gaiaLocalResponse(msg);
+
+  const typing=document.querySelector('.gaia-msg.typing');
+  if(typing) typing.remove();
+  addGaiaMsg(res,'bot');
+}
+
+function addGaiaMsg(text,type,cls){
+  const msgs=document.getElementById('gaiaMessages');
+  const div=document.createElement('div');
+  div.className=`gaia-msg ${type}${cls?' '+cls:''}`;
+  div.textContent=text;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+// ══════════════════════════════════════════════════════════
+// INSTALAR
+// ══════════════════════════════════════════════════════════
+function openInstallHelp(){alert(t('install_help'));}
+
+// ══════════════════════════════════════════════════════════
+// NOTIFICACIONES PUSH + FALLBACK ICS
+// ══════════════════════════════════════════════════════════
+function pad(n){return String(n).padStart(2,'0');}
+
+function createIcs(timeStr){
+  const now=new Date();
+  const ds=now.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const y=now.getFullYear(),m=pad(now.getMonth()+1),d=pad(now.getDate());
+  let h=pad(now.getHours()),mi=pad(now.getMinutes());
+  if(timeStr&&timeStr.includes(':')){const p=timeStr.split(':');h=pad(parseInt(p[0]));mi=pad(parseInt(p[1]));}
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Kair//App//ES','BEGIN:VEVENT',`UID:${ds}@kair`,`DTSTAMP:${ds}`,'SUMMARY:Registro diario · Kair',`DTSTART:${y}${m}${d}T${h}${mi}00`,'RRULE:FREQ=DAILY','DESCRIPTION:Recordatorio para tu registro diario en Kair.','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='recordatorio-kair.ics';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+async function schedulePushNotification(timeStr){
+  // Comprobar soporte
+  if(!('serviceWorker' in navigator)||!('Notification' in window)){
+    return{ok:false,reason:'no_sw'};
+  }
+  // Pedir permiso
+  const permission=await Notification.requestPermission();
+  if(permission!=='granted') return{ok:false,reason:'denied'};
+
+  // Guardar preferencia de hora
+  localStorage.setItem('kair_reminder_time',timeStr);
+
+  // Enviar mensaje al SW para programar la notificación
+  const reg=await navigator.serviceWorker.ready;
+  if(reg&&reg.active){
+    reg.active.postMessage({type:'SCHEDULE_NOTIFICATION',time:timeStr,title:'Registro diario · Kair',body:'Es hora de hacer tu registro diario.'});
+  }
+  return{ok:true};
+}
+
+window.openReminderModal=function(){
+  const stored=localStorage.getItem('kair_reminder_time');
+  const now=new Date();
+  document.getElementById('reminderTime').value=stored||`${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById('pushStatus').style.display='none';
+  document.getElementById('reminderModal').style.display='flex';
+};
+window.closeReminderModal=function(){document.getElementById('reminderModal').style.display='none';};
+window.confirmReminder=async function(){
+  const timeStr=document.getElementById('reminderTime').value;
+  if(!timeStr){alert(t('select_time'));return;}
+  const statusEl=document.getElementById('pushStatus');
+  statusEl.style.display='block';
+  statusEl.textContent='Activando...';
+
+  // Intentar push nativo primero
+  const result=await schedulePushNotification(timeStr);
+  if(result.ok){
+    statusEl.textContent=t('push_granted');
+    statusEl.style.color='var(--accent)';
+    setTimeout(()=>closeReminderModal(),2000);
+  }else if(result.reason==='denied'){
+    statusEl.textContent=t('push_denied');
+    statusEl.style.color='var(--danger)';
+  }else{
+    // Fallback ICS
+    statusEl.textContent=t('push_no_sw');
+    statusEl.style.color='var(--text-muted)';
+    createIcs(timeStr);
+    setTimeout(()=>closeReminderModal(),2000);
+  }
+};
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',async()=>{
+  initSplash();
+  initDarkMode();
+  currentLang=detectLang();
+  document.getElementById('langSelect').value=currentLang;
+  applyI18n();
+  await cargarConfig();
+  ['tristeza','estres','fatiga','sueno','digestion'].forEach(id=>{
+    const s=document.getElementById('slide-'+id);
+    const l=document.getElementById('val-'+id);
+    s.addEventListener('input',()=>{l.textContent=s.value;});
+  });
+  cargarEvidencia();
+
+  // Restaurar sesión en background — el usuario no tiene que volver a hacer login
+  // La sesión se restaura silenciosamente; el splash/legal se muestran encima
+  const storedId=localStorage.getItem('kair_id');
+  if(storedId){
+    // AutoLogin silencioso: no bloquea UI, corre en background
+    tryLogin(storedId).catch(()=>{});
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// SERVICE WORKER + reprogramar notificación al abrir la app
+// ══════════════════════════════════════════════════════════
+if('serviceWorker' in navigator){
+  window.addEventListener('load',async()=>{
+    const reg=await navigator.serviceWorker.register('./service-worker.js').catch(e=>{ console.log('SW:',e); return null; });
+    // Si hay una hora guardada y tenemos permiso, reprogramar al SW
+    const savedTime=localStorage.getItem('kair_reminder_time');
+    if(savedTime&&reg&&reg.active&&Notification.permission==='granted'){
+      reg.active.postMessage({type:'SCHEDULE_NOTIFICATION',time:savedTime,title:'Registro diario · Kair',body:'Es hora de hacer tu registro diario.'});
+    }
+  });
+}
+</script>
+</body>
+</html>
